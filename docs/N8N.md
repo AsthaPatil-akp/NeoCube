@@ -20,13 +20,22 @@ Use **one** published workflow (Client Supplier Notification Hub). Do not create
 
 ## Workflow
 
+This is the production n8n workflow currently used by NeoCube:
+
+![n8n Client Supplier Notification Hub](n8n-workflow.png)
+
 ```
 Webhook
-  → Switch / IF on event_type
-      MATCH_CREATED        → Gmail To = supplier_email
-      CLIENT_REQUEST_SENT  → Gmail To = supplier_email
-      SUPPLIER_ACCEPTED    → Gmail To = client_email
-      SUPPLIER_DECLINED    → Gmail To = client_email
+  → Normalize Event
+  → Check Duplicate
+  → Already Processed?
+  → Has Recipient?
+  → Route by Event Type
+      MATCH_CREATED        → Email Client — Match Created
+      CLIENT_REQUEST_SENT  → Email Supplier — Client Request
+      SUPPLIER_ACCEPTED    → Email Client — Supplier Accepted
+      SUPPLIER_DECLINED    → Email Client — Supplier Declined
+  → Log processed event
 ```
 
 Do not hardcode addresses. Use payload fields. Keep the existing Gmail credentials.

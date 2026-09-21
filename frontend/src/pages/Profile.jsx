@@ -66,14 +66,6 @@ export default function Profile() {
 
   return (
     <Layout>
-      <section className="profile-hero">
-        <div>
-          <p className="eyebrow">Your account</p>
-          <h1>{user.full_name}</h1>
-          <p className="role-chip">{user.role}</p>
-        </div>
-      </section>
-
       <section className="profile-edit">
         <div className="auth-panel">
           <p className="eyebrow">Details</p>

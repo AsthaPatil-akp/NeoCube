@@ -213,7 +213,25 @@ Rows in `notifications` (unread/read, type, related entity, timestamp). Created 
 
 ## N8N
 
-N8N is **optional** for matching and RFQs. If `N8N_WEBHOOK_URL` is set, the backend POSTs structured events (`MATCH_CREATED`, `CLIENT_REQUEST_SENT`, `SUPPLIER_ACCEPTED`, `SUPPLIER_DECLINED`) to that backend-only URL after the corresponding business event is committed. If the URL is empty, n8n is down, or the webhook errors, matching, RFQs, and in-app notifications still succeed. See `docs/N8N.md`.
+N8N is **optional** for matching and RFQs. If `N8N_WEBHOOK_URL` is set, the backend POSTs structured events (`MATCH_CREATED`, `CLIENT_REQUEST_SENT`, `SUPPLIER_ACCEPTED`, `SUPPLIER_DECLINED`) to that backend-only URL after the corresponding business event is committed. Recipients come from registered `users.email` values (`supplier_email` / `client_email`). If the URL is empty, n8n is down, or the webhook errors, matching, RFQs, and in-app notifications still succeed. See `docs/N8N.md`.
+
+This is the production n8n workflow currently used by NeoCube:
+
+![n8n Client Supplier Notification Hub](docs/n8n-workflow.png)
+
+```
+Webhook
+  → Normalize Event
+  → Check Duplicate
+  → Already Processed?
+  → Has Recipient?
+  → Route by Event Type
+      MATCH_CREATED        → Email Client — Match Created
+      CLIENT_REQUEST_SENT  → Email Supplier — Client Request
+      SUPPLIER_ACCEPTED    → Email Client — Supplier Accepted
+      SUPPLIER_DECLINED    → Email Client — Supplier Declined
+  → Log processed event
+```
 
 ## RFQ and quotations
 

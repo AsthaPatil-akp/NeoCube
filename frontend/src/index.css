@@ -160,6 +160,10 @@ a {
   object-fit: cover;
 }
 
+.profile-photo-field {
+  margin-bottom: 0.65rem;
+}
+
 .profile-photo-field input[type="file"] {
   font-size: 0.88rem;
 }
