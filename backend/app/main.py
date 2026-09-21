@@ -20,6 +20,7 @@ from app.routers import notifications as notifications_router
 from app.routers import offerings as offerings_router
 from app.routers import requirements as requirements_router
 from app.routers import rfqs as rfqs_router
+from app.routers import suppliers as suppliers_router
 from app.routers import users as users_router
 from app.security import hash_password
 
@@ -224,4 +225,5 @@ app.include_router(documents_router.router)
 app.include_router(documents_router.supplier_router)
 app.include_router(notifications_router.router)
 app.include_router(rfqs_router.router)
+app.include_router(suppliers_router.router)
 app.include_router(admin_router.router)

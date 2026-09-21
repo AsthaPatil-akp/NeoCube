@@ -178,6 +178,18 @@ export function verifyRfqOtp(id, otp) {
   return request(`/rfqs/${id}/verify-otp`, { method: "POST", body: JSON.stringify({ otp }) });
 }
 
+export function getSupplierProfile(id) {
+  return request(`/suppliers/${id}/profile`);
+}
+
+export function getSupplierReviews(id) {
+  return request(`/suppliers/${id}/reviews`);
+}
+
+export function createRfqReview(id, body) {
+  return request(`/rfqs/${id}/review`, { method: "POST", body: JSON.stringify(body) });
+}
+
 export function markNotificationRead(id) {
   return request(`/notifications/${id}/read`, { method: "POST" });
 }

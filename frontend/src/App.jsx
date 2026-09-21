@@ -17,6 +17,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import RfqList from "./pages/RfqList";
 import RfqDetail from "./pages/RfqDetail";
 import Track from "./pages/Track";
+import SupplierPublicProfile from "./pages/SupplierPublicProfile";
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/profile" element={<Profile />} />
             <Route path="/notifications" element={<Notifications />} />
+            <Route path="/suppliers/:id" element={<SupplierPublicProfile />} />
           </Route>
           <Route element={<RoleRoute roles={["CLIENT"]} />}>
             <Route path="/dashboard" element={<ClientDashboard />} />

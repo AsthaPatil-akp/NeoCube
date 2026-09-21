@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { useAuth } from "../AuthContext";
 import { formatMatchScore } from "../formatMatchScore";
@@ -284,6 +284,11 @@ export default function RfqDetail() {
           </div>
         )}
         <div className="actions-row">
+          {item?.supplier_id && user.role === "CLIENT" && (
+            <Link className="btn" to={`/suppliers/${item.supplier_id}`}>
+              View Supplier Profile
+            </Link>
+          )}
           <button className="text-btn" type="button" onClick={() => navigate(user.role === "SUPPLIER" ? "/supplier" : "/dashboard")}>
             Back to dashboard
           </button>

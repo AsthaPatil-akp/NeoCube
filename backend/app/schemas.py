@@ -185,6 +185,7 @@ class MatchSummary(BaseModel):
     model_version: str | None = None
     rfq_id: int | None = None
     rfq_status: str | None = None
+    supplier_id: int | None = None
 
 
 class RequirementResponse(BaseModel):
@@ -421,6 +422,63 @@ class VerifyOtpRequest(BaseModel):
     otp: str
 
 
+class ReviewCreateRequest(BaseModel):
+    rating: int = Field(ge=1, le=5)
+    feedback: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("feedback")
+    @classmethod
+    def strip_feedback(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+
+class ReviewOwnResponse(BaseModel):
+    id: int
+    rfq_id: int
+    rating: int
+    feedback: str | None = None
+    created_at: datetime
+
+
+class ReviewPublicResponse(BaseModel):
+    id: int
+    rating: int
+    feedback: str | None = None
+    client_name: str
+    verified: bool = True
+    created_at: datetime
+
+
+class SupplierOfferingPublic(BaseModel):
+    id: int
+    product_offered: str
+    category_name: str
+    custom_category: str | None = None
+    available_quantity: int
+    quantity_unit: str | None = None
+    pricing_details: str | None = None
+    price_amount: int | None = None
+    price_currency: str | None = None
+    price_basis: str | None = None
+    location: str
+    delivery_capability: str
+    additional_notes: str | None = None
+    status: str
+
+
+class SupplierPublicProfile(BaseModel):
+    id: int
+    company_name: str
+    categories: list[str] = []
+    offerings: list[SupplierOfferingPublic] = []
+    average_rating: float | None = None
+    review_count: int = 0
+    reviews: list[ReviewPublicResponse] = []
+
+
 class RfqResponse(BaseModel):
     id: int
     requirement_id: int
@@ -446,6 +504,9 @@ class RfqResponse(BaseModel):
     created_at: datetime
     quotations: list[QuotationResponse] = []
     tracking: OrderTrackingResponse | None = None
+    supplier_id: int | None = None
+    can_review: bool = False
+    review: ReviewOwnResponse | None = None
 
 
 class AdminSummaryResponse(BaseModel):

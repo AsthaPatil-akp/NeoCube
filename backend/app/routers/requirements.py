@@ -115,6 +115,7 @@ def to_response(requirement: ClientRequirement, match_count: int | None = None) 
                 model_version=item.model_version,
                 rfq_id=rfq.id if rfq is not None else None,
                 rfq_status=rfq.status if rfq is not None else None,
+                supplier_id=offering.supplier_id,
             )
         )
     return RequirementResponse(

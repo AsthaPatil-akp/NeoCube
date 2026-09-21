@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { formatMatchLabel, sortByMatchScore } from "../formatMatchScore";
 import { canSendMatchRequest } from "../matchRequest";
+import { supplierProfilePath } from "../supplierProfile";
 import { ApiError, cancelRequirement, createRfq, getRequirement, updateRequirement } from "../api";
 
 function priceLabel(match) {
@@ -219,6 +220,11 @@ export default function RequirementDetail() {
                     )}
                   </div>
                   <div className="actions-row">
+                    {supplierProfilePath(match.supplier_id, match) && (
+                      <Link className="btn" to={supplierProfilePath(match.supplier_id, match)}>
+                        View Supplier Profile
+                      </Link>
+                    )}
                     <button
                       className="btn"
                       type="button"

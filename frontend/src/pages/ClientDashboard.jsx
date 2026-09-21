@@ -4,6 +4,7 @@ import Layout from "../components/Layout";
 import { useAuth } from "../AuthContext";
 import { formatMatchLabel, sortByMatchScore } from "../formatMatchScore";
 import { canSendMatchRequest } from "../matchRequest";
+import { supplierProfilePath } from "../supplierProfile";
 import { ApiError, cancelRequirement, createRfq, getNotifications, getRequirements } from "../api";
 
 export default function ClientDashboard() {
@@ -158,6 +159,11 @@ export default function ClientDashboard() {
                     </p>
                   </div>
                   <div className="actions-row">
+                    {supplierProfilePath(match.supplier_id, match) && (
+                      <Link className="btn" to={supplierProfilePath(match.supplier_id, match)}>
+                        View Supplier Profile
+                      </Link>
+                    )}
                     <Link className="btn" to={`/requirements/${requirement.id}`}>
                       View details
                     </Link>

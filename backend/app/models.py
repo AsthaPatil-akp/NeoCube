@@ -279,6 +279,7 @@ class Rfq(Base):
     match: Mapped[Match | None] = relationship(back_populates="rfqs")
     quotations: Mapped[list["Quotation"]] = relationship(back_populates="rfq")
     track: Mapped["OrderTrack | None"] = relationship(back_populates="rfq", uselist=False)
+    review: Mapped["SupplierReview | None"] = relationship(back_populates="rfq", uselist=False)
 
 
 class Quotation(Base):
@@ -338,6 +339,30 @@ class OrderTrack(Base):
     )
 
     rfq: Mapped[Rfq] = relationship(back_populates="track")
+
+
+class SupplierReview(Base):
+    __tablename__ = "supplier_reviews"
+    __table_args__ = (UniqueConstraint("rfq_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    rfq_id: Mapped[int] = mapped_column(ForeignKey("rfqs.id", ondelete="CASCADE"), unique=True, nullable=False)
+    supplier_id: Mapped[int] = mapped_column(
+        ForeignKey("supplier_profiles.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    client_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    feedback: Mapped[str | None] = mapped_column(String(2000))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, server_default=func.now(), nullable=False
+    )
+
+    rfq: Mapped[Rfq] = relationship(back_populates="review")
+    supplier: Mapped[SupplierProfile] = relationship()
+    client: Mapped[User] = relationship()
 
 
 class AuditLog(Base):

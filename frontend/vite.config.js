@@ -40,6 +40,15 @@ export default defineConfig({
           }
         },
       },
+      "/suppliers": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+        bypass(req) {
+          if (req.headers.accept?.includes("text/html")) {
+            return "/index.html";
+          }
+        },
+      },
       "/health": { target: "http://127.0.0.1:8000", changeOrigin: true },
     },
   },

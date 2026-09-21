@@ -2,6 +2,7 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.audit import notify, write_audit
@@ -15,9 +16,11 @@ from app.models import (
     Rfq,
     SupplierOffering,
     SupplierProfile,
+    SupplierReview,
     User,
     utc_now,
 )
+from app.reviews import order_is_completed, own_review_payload
 from app.order_track import (
     TRACKABLE_RFQ_STATUSES,
     assign_otp,
@@ -31,6 +34,8 @@ from app.schemas import (
     OrderTrackingResponse,
     QuotationCreateRequest,
     QuotationResponse,
+    ReviewCreateRequest,
+    ReviewOwnResponse,
     RfqCreateRequest,
     RfqResponse,
     VerifyOtpRequest,
@@ -69,6 +74,7 @@ _RFQ_LOAD = (
     joinedload(Rfq.quotations),
     joinedload(Rfq.match),
     joinedload(Rfq.track),
+    joinedload(Rfq.review),
 )
 
 
@@ -153,6 +159,7 @@ def _rfq_response(rfq: Rfq, requirement: ClientRequirement | None, offering: Sup
         created_at=rfq.created_at,
         quotations=quotes,
         tracking=None,
+        supplier_id=offering.supplier_id if offering is not None else None,
     )
 
 
@@ -164,6 +171,12 @@ def _with_tracking(db, rfq: Rfq, response: RfqResponse, viewer: User | None) -> 
     payload = tracking_payload(rfq, viewer)
     if payload is not None:
         response.tracking = OrderTrackingResponse.model_validate(payload)
+    review = rfq.review
+    completed = order_is_completed(rfq)
+    viewer_is_owner = viewer is not None and viewer.role.name == "CLIENT" and viewer.id == rfq.client_user_id
+    response.can_review = bool(viewer_is_owner and completed and review is None)
+    if review is not None and viewer is not None and viewer.id in {rfq.client_user_id, rfq.supplier_user_id}:
+        response.review = ReviewOwnResponse.model_validate(own_review_payload(review))
     return response
 
 
@@ -687,6 +700,46 @@ def verify_receipt_otp(
     emit_n8n(_lifecycle_event(ORDER_RECEIVED, updated, db, current_user))
     emit_n8n(_lifecycle_event(ORDER_COMPLETED, updated, db, current_user))
     return _respond_lifecycle(db, updated, current_user)
+
+
+@router.post("/{rfq_id}/review", response_model=RfqResponse)
+def create_rfq_review(
+    rfq_id: int,
+    payload: ReviewCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("CLIENT")),
+) -> RfqResponse:
+    rfq = _owned_rfq(db, rfq_id, current_user)
+    if current_user.role.name != "CLIENT" or rfq.client_user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="You are not authorized to access this order.")
+    if not order_is_completed(rfq):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This order is not completed yet.")
+    if rfq.review is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="You have already reviewed this supplier.")
+    offering = _load_offering(db, rfq.offering_id)
+    if offering is None or offering.supplier is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="RFQ not found")
+    if offering.supplier.user_id != rfq.supplier_user_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="You are not authorized to access this order.")
+    review = SupplierReview(
+        rfq_id=rfq.id,
+        supplier_id=offering.supplier_id,
+        client_user_id=current_user.id,
+        rating=payload.rating,
+        feedback=payload.feedback,
+    )
+    db.add(review)
+    write_audit(db, "review.create", current_user.id, "supplier_review", rfq.id)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="You have already reviewed this supplier.")
+    loaded = _load_rfq(db, rfq.id)
+    assert loaded is not None
+    requirement = _load_requirement(db, loaded.requirement_id)
+    offering = _load_offering(db, loaded.offering_id)
+    return _with_tracking(db, loaded, _rfq_response(loaded, requirement, offering), current_user)
 
 
 @router.post("/{rfq_id}/receive", response_model=RfqResponse)

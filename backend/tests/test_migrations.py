@@ -31,6 +31,7 @@ def test_schema_is_alembic_head():
         "rfqs",
         "quotations",
         "order_tracks",
+        "supplier_reviews",
         "audit_logs",
     ):
         assert name in tables
@@ -61,4 +62,4 @@ def test_schema_is_alembic_head():
     finally:
         db.close()
     assert version == alembic_head_revision()
-    assert version == "009_order_tracks"
+    assert version == "010_supplier_reviews"

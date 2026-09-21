@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../components/Layout";
 import { useAuth } from "../AuthContext";
-import { ApiError, getRfqs, markRfqPaid, markRfqShipped, refreshRfqOtp, verifyRfqOtp } from "../api";
+import { ApiError, createRfqReview, getRfqs, markRfqPaid, markRfqShipped, refreshRfqOtp, verifyRfqOtp } from "../api";
 import { isTrackable, nextTrackAction, sortTrackItems, TRACK_STEPS, trackStatus, trackStepIndex } from "../trackFlow";
 
 export default function Track() {
@@ -11,6 +11,7 @@ export default function Track() {
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null);
   const [otpById, setOtpById] = useState({});
+  const [reviewById, setReviewById] = useState({});
   const isSupplier = user.role === "SUPPLIER";
   const tracked = sortTrackItems(items.filter((item) => isTrackable(trackStatus(item))));
 
@@ -106,10 +107,74 @@ export default function Track() {
                       <p className="history-meta">OTP has expired. Please generate a new OTP.</p>
                     )}
                     {completed && <p className="banner banner-success">Order completed.</p>}
+                    {completed && !isSupplier && item.review && (
+                      <p className="history-meta">You have already reviewed this supplier.</p>
+                    )}
+                    {completed && !isSupplier && item.can_review && (
+                      <div className="review-form">
+                        <p className="eyebrow">Rate this Supplier</p>
+                        <div className="star-picker" role="group" aria-label="Star rating">
+                          {[1, 2, 3, 4, 5].map((value) => (
+                            <button
+                              key={value}
+                              className={(reviewById[item.id]?.rating || 0) >= value ? "is-on" : ""}
+                              type="button"
+                              onClick={() =>
+                                setReviewById((current) => ({
+                                  ...current,
+                                  [item.id]: { ...(current[item.id] || {}), rating: value },
+                                }))
+                              }
+                            >
+                              {(reviewById[item.id]?.rating || 0) >= value ? "★" : "☆"}
+                            </button>
+                          ))}
+                        </div>
+                        <label>
+                          Share your experience
+                          <textarea
+                            value={reviewById[item.id]?.feedback || ""}
+                            onChange={(event) =>
+                              setReviewById((current) => ({
+                                ...current,
+                                [item.id]: { ...(current[item.id] || {}), feedback: event.target.value },
+                              }))
+                            }
+                            placeholder="Write your feedback..."
+                            rows={3}
+                          />
+                        </label>
+                      </div>
+                    )}
+                    {completed && !isSupplier && item.review && !item.can_review && (
+                      <p className="banner banner-success">Review Submitted</p>
+                    )}
                     <div className="actions-row">
                       <Link className="btn" to={`/rfqs/${item.id}`}>
                         View request
                       </Link>
+                      {item.supplier_id && (
+                        <Link className="btn" to={`/suppliers/${item.supplier_id}`}>
+                          View Supplier Profile
+                        </Link>
+                      )}
+                      {completed && !isSupplier && item.can_review && (
+                        <button
+                          className="btn"
+                          type="button"
+                          disabled={busyId === item.id}
+                          onClick={() => {
+                            const draft = reviewById[item.id] || {};
+                            if (!draft.rating) {
+                              setError("Select a star rating before submitting.");
+                              return;
+                            }
+                            run(item, () => createRfqReview(item.id, { rating: draft.rating, feedback: draft.feedback || null }));
+                          }}
+                        >
+                          Submit Review
+                        </button>
+                      )}
                       {action && (
                         <button
                           className="btn"
