@@ -1,0 +1,47 @@
+REQUIREMENT_STATUSES = (
+    "DRAFT",
+    "SUBMITTED",
+    "PROCESSING",
+    "MATCHED",
+    "RFQ_SENT",
+    "CLOSED",
+    "CANCELLED",
+)
+
+OFFERING_STATUSES = (
+    "DRAFT",
+    "ACTIVE",
+    "UNAVAILABLE",
+    "EXPIRED",
+    "DEACTIVATED",
+)
+
+REQUIREMENT_TRANSITIONS = {
+    "DRAFT": {"SUBMITTED", "CANCELLED"},
+    "SUBMITTED": {"PROCESSING", "MATCHED", "CANCELLED"},
+    "PROCESSING": {"MATCHED", "CANCELLED"},
+    "MATCHED": {"RFQ_SENT", "CLOSED", "CANCELLED"},
+    "RFQ_SENT": {"CLOSED", "CANCELLED"},
+    "CLOSED": set(),
+    "CANCELLED": set(),
+}
+
+OFFERING_TRANSITIONS = {
+    "DRAFT": {"ACTIVE", "DEACTIVATED"},
+    "ACTIVE": {"UNAVAILABLE", "EXPIRED", "DEACTIVATED"},
+    "UNAVAILABLE": {"ACTIVE", "DEACTIVATED"},
+    "EXPIRED": {"ACTIVE", "DEACTIVATED"},
+    "DEACTIVATED": set(),
+}
+
+CREATE_REQUIREMENT_STATUSES = {"DRAFT", "SUBMITTED"}
+CREATE_OFFERING_STATUSES = {"DRAFT", "ACTIVE"}
+EDITABLE_REQUIREMENT_STATUSES = {"DRAFT", "SUBMITTED", "PROCESSING"}
+EDITABLE_OFFERING_STATUSES = {"DRAFT", "ACTIVE", "UNAVAILABLE"}
+OPEN_REQUIREMENT_STATUSES = {"SUBMITTED", "PROCESSING", "MATCHED", "RFQ_SENT"}
+
+
+def can_transition(transitions: dict[str, set[str]], current: str, target: str) -> bool:
+    if current == target:
+        return True
+    return target in transitions.get(current, set())

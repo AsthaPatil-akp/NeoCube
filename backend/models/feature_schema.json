@@ -1,0 +1,9 @@
+{
+  "feature_columns": [
+    "semantic_similarity",
+    "quantity_ratio",
+    "budget_ratio",
+    "delivery_ratio",
+    "location_overlap"
+  ]
+}

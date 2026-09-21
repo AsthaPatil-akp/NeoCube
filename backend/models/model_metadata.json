@@ -1,0 +1,101 @@
+{
+  "model_version": "supplier_match_model_v1",
+  "selected_model": "random_forest",
+  "selection_rule": "highest validation F1; accuracy was not the selection criterion",
+  "dataset_source": "curated synthetic client-supplier pairs generated from product-family templates. Not historical company data.",
+  "label_definition": "match_label=1 only when category family matches, available_quantity >= required_quantity, unit_price*quantity <= budget, and parsed supplier delivery days <= client days.",
+  "records": 446,
+  "class_balance": {
+    "1": 250,
+    "0": 196
+  },
+  "split": {
+    "train": 312,
+    "validation": 67,
+    "test": 67,
+    "random_state": 42,
+    "stratified": true
+  },
+  "feature_columns": [
+    "semantic_similarity",
+    "quantity_ratio",
+    "budget_ratio",
+    "delivery_ratio",
+    "location_overlap"
+  ],
+  "preprocessing": "LSA (Tfidf char_wb 3-5 grams + TruncatedSVD 64) fitted on TRAIN product text only. ML features are semantic cosine plus quantity/budget/delivery ratios and location overlap. Binary label-rule flags are NOT used as model inputs (they remain hard filters at inference).",
+  "validation_metrics": {
+    "logistic_regression": {
+      "precision": 0.973,
+      "recall": 0.9474,
+      "f1": 0.96,
+      "roc_auc": 0.9828,
+      "confusion_matrix": [
+        [
+          28,
+          1
+        ],
+        [
+          2,
+          36
+        ]
+      ]
+    },
+    "random_forest": {
+      "precision": 1.0,
+      "recall": 0.9737,
+      "f1": 0.9867,
+      "roc_auc": 1.0,
+      "confusion_matrix": [
+        [
+          29,
+          0
+        ],
+        [
+          1,
+          37
+        ]
+      ]
+    },
+    "gradient_boosting": {
+      "precision": 1.0,
+      "recall": 0.9737,
+      "f1": 0.9867,
+      "roc_auc": 1.0,
+      "confusion_matrix": [
+        [
+          29,
+          0
+        ],
+        [
+          1,
+          37
+        ]
+      ]
+    }
+  },
+  "test_metrics": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "roc_auc": 1.0,
+    "confusion_matrix": [
+      [
+        30,
+        0
+      ],
+      [
+        0,
+        37
+      ]
+    ]
+  },
+  "test_classification_report": "              precision    recall  f1-score   support\n\n           0       1.00      1.00      1.00        30\n           1       1.00      1.00      1.00        37\n\n    accuracy                           1.00        67\n   macro avg       1.00      1.00      1.00        67\nweighted avg       1.00      1.00      1.00        67\n",
+  "final_score_formula": "Hard filters first. Among eligible suppliers, final_score equals the trained model P(match=1). Semantic cosine is a model feature, not a standalone keyword score. If the model artifact is missing, fallback is 0.6*semantic + 0.4*structured.",
+  "dependencies": {
+    "scikit-learn": "1.6.1",
+    "numpy": "2.2.6",
+    "pandas": "2.3.3",
+    "joblib": "1.6.0"
+  }
+}

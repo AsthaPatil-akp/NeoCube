@@ -1,0 +1,28 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: sqlite:////data/app.db
+      SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
+      COOKIE_SECURE: "false"
+      FRONTEND_ORIGIN: http://localhost:5173
+      ENVIRONMENT: production
+      MODEL_DIR: models
+      N8N_WEBHOOK_URL: ${N8N_WEBHOOK_URL:-}
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - neocube-data:/data
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  neocube-data:
