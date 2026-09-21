@@ -139,6 +139,41 @@ def test_notification_mark_read_idor():
     assert marked.json()["is_read"] is True
 
 
+def test_client_and_supplier_can_clear_selected_and_all_notifications():
+    supplier = make_client()
+    register_and_login(supplier, "sup-clear-notes@example.com", "SUPPLIER")
+    category_id = unique_category_id()
+    supplier.post("/offerings", json=offering_payload(category_id))
+
+    buyer = make_client()
+    register_and_login(buyer, "cli-clear-notes@example.com")
+    buyer.post("/requirements", json=requirement_payload(category_id))
+
+    buyer_notes = buyer.get("/notifications").json()
+    supplier_notes = supplier.get("/notifications").json()
+    assert buyer_notes
+    assert supplier_notes
+
+    keep_id = buyer_notes[0]["id"]
+    if len(buyer_notes) > 1:
+        clear_ids = [item["id"] for item in buyer_notes[1:]]
+        cleared = buyer.post("/notifications/clear-selected", json={"ids": clear_ids})
+        assert cleared.status_code == 204
+        remaining = buyer.get("/notifications").json()
+        assert [item["id"] for item in remaining] == [keep_id]
+
+    assert buyer.post("/notifications/clear-selected", json={"ids": [supplier_notes[0]["id"]]}).status_code == 404
+    assert buyer.get("/notifications").json()
+
+    assert buyer.post("/notifications/clear-all").status_code == 204
+    assert buyer.get("/notifications").json() == []
+    assert supplier.get("/notifications").json()
+
+    assert supplier.post("/notifications/clear-all").status_code == 204
+    assert supplier.get("/notifications").json() == []
+    assert supplier.post("/notifications/clear-selected", json={"ids": []}).status_code == 422
+
+
 def test_rfq_and_quotation_totals():
     supplier = make_client()
     register_and_login(supplier, "sup-rfq2@example.com", "SUPPLIER")

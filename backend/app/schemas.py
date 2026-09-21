@@ -357,6 +357,10 @@ class NotificationResponse(BaseModel):
     created_at: datetime
 
 
+class ClearNotificationsRequest(BaseModel):
+    ids: list[int] = Field(min_length=1)
+
+
 class RfqCreateRequest(BaseModel):
     match_id: int
     notes: str | None = Field(default=None, max_length=2000)

@@ -126,6 +126,17 @@ export function getNotifications() {
   return request("/notifications");
 }
 
+export function clearAllNotifications() {
+  return request("/notifications/clear-all", { method: "POST" });
+}
+
+export function clearSelectedNotifications(ids) {
+  return request("/notifications/clear-selected", {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
+}
+
 export function getAdminSummary() {
   return request("/admin/summary");
 }
