@@ -9,8 +9,24 @@ export default defineConfig({
       "/auth": { target: "http://127.0.0.1:8000", changeOrigin: true },
       "/users": { target: "http://127.0.0.1:8000", changeOrigin: true },
       "/categories": { target: "http://127.0.0.1:8000", changeOrigin: true },
-      "/requirements": { target: "http://127.0.0.1:8000", changeOrigin: true },
-      "/offerings": { target: "http://127.0.0.1:8000", changeOrigin: true },
+      "/requirements": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+        bypass(req) {
+          if (req.headers.accept?.includes("text/html")) {
+            return "/index.html";
+          }
+        },
+      },
+      "/offerings": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+        bypass(req) {
+          if (req.headers.accept?.includes("text/html")) {
+            return "/index.html";
+          }
+        },
+      },
       "/documents": { target: "http://127.0.0.1:8000", changeOrigin: true },
       "/supplier-documents": { target: "http://127.0.0.1:8000", changeOrigin: true },
       "/notifications": {
@@ -41,6 +57,15 @@ export default defineConfig({
         },
       },
       "/suppliers": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+        bypass(req) {
+          if (req.headers.accept?.includes("text/html")) {
+            return "/index.html";
+          }
+        },
+      },
+      "/ai-product-finder": {
         target: "http://127.0.0.1:8000",
         changeOrigin: true,
         bypass(req) {

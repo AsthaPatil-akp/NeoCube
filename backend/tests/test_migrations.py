@@ -32,6 +32,7 @@ def test_schema_is_alembic_head():
         "quotations",
         "order_tracks",
         "supplier_reviews",
+        "product_image_embeddings",
         "audit_logs",
     ):
         assert name in tables
@@ -51,7 +52,17 @@ def test_schema_is_alembic_head():
     off_cols = {col["name"] for col in inspector.get_columns("supplier_offerings")}
     for name in ("custom_category", "quantity_unit", "budget_currency", "budget_basis"):
         assert name in req_cols
-    for name in ("custom_category", "quantity_unit", "price_amount", "price_currency", "price_basis"):
+    for name in (
+        "custom_category",
+        "quantity_unit",
+        "price_amount",
+        "price_currency",
+        "price_basis",
+        "product_image_path",
+        "product_image_filename",
+        "product_image_mime_type",
+        "product_image_source",
+    ):
         assert name in off_cols
     assert "is_predefined" in {col["name"] for col in inspector.get_columns("categories")}
     assert "profile_photo" in {col["name"] for col in inspector.get_columns("users")}
@@ -62,4 +73,4 @@ def test_schema_is_alembic_head():
     finally:
         db.close()
     assert version == alembic_head_revision()
-    assert version == "010_supplier_reviews"
+    assert version == "012_product_image_source"

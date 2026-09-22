@@ -1,0 +1,163 @@
+{
+  "model_version": "product_vision_cnn_v1",
+  "accuracy": 1.0,
+  "macro_precision": 1.0,
+  "macro_recall": 1.0,
+  "macro_f1": 1.0,
+  "confusion_matrix": [
+    [
+      6,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      6,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      6,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      6,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      6,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      6
+    ]
+  ],
+  "per_class": {
+    "steel_metals": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 6
+    },
+    "electronics": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 6
+    },
+    "packaging": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 6
+    },
+    "textiles": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 6
+    },
+    "industrial_components": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 6
+    },
+    "raw_materials": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 6
+    }
+  },
+  "n_test": 36,
+  "class_names": [
+    "steel_metals",
+    "electronics",
+    "packaging",
+    "textiles",
+    "industrial_components",
+    "raw_materials"
+  ],
+  "training_history": [
+    {
+      "epoch": 1,
+      "train_loss": 1.265731116135915,
+      "train_acc": 0.640625,
+      "val_loss": 1.4818060398101807,
+      "val_acc": 0.28125
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.5613788415988287,
+      "train_acc": 0.953125,
+      "val_loss": 0.990466833114624,
+      "val_acc": 0.421875
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.3131273165345192,
+      "train_acc": 0.9635416666666666,
+      "val_loss": 0.4306185692548752,
+      "val_acc": 0.859375
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.19840223093827566,
+      "train_acc": 0.9479166666666666,
+      "val_loss": 0.16146227344870567,
+      "val_acc": 1.0
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.143129991988341,
+      "train_acc": 0.9635416666666666,
+      "val_loss": 0.07377539947628975,
+      "val_acc": 1.0
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.0833573080599308,
+      "train_acc": 0.9895833333333334,
+      "val_loss": 0.062895224429667,
+      "val_acc": 1.0
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.08309844353546698,
+      "train_acc": 0.9791666666666666,
+      "val_loss": 0.026908223051577806,
+      "val_acc": 1.0
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.17883490957319736,
+      "train_acc": 0.9114583333333334,
+      "val_loss": 0.02008678438141942,
+      "val_acc": 1.0
+    }
+  ],
+  "best_val_accuracy": 1.0
+}

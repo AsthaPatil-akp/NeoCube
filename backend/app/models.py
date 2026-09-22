@@ -151,6 +151,10 @@ class SupplierOffering(Base):
     delivery_capability: Mapped[str] = mapped_column(String(200), nullable=False)
     additional_notes: Mapped[str | None] = mapped_column(String(2000))
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="DRAFT", index=True)
+    product_image_path: Mapped[str | None] = mapped_column(String(255))
+    product_image_filename: Mapped[str | None] = mapped_column(String(255))
+    product_image_mime_type: Mapped[str | None] = mapped_column(String(80))
+    product_image_source: Mapped[str | None] = mapped_column(String(40))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, server_default=func.now(), nullable=False
     )
@@ -161,6 +165,9 @@ class SupplierOffering(Base):
     supplier: Mapped[SupplierProfile] = relationship(back_populates="offerings")
     category: Mapped[Category] = relationship()
     matches: Mapped[list["Match"]] = relationship(back_populates="offering", cascade="all, delete-orphan")
+    image_embedding: Mapped["ProductImageEmbedding | None"] = relationship(
+        back_populates="offering", cascade="all, delete-orphan", uselist=False
+    )
 
 
 class RequirementDocument(Base):
@@ -363,6 +370,26 @@ class SupplierReview(Base):
     rfq: Mapped[Rfq] = relationship(back_populates="review")
     supplier: Mapped[SupplierProfile] = relationship()
     client: Mapped[User] = relationship()
+
+
+class ProductImageEmbedding(Base):
+    __tablename__ = "product_image_embeddings"
+    __table_args__ = (UniqueConstraint("supplier_offering_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    supplier_offering_id: Mapped[int] = mapped_column(
+        ForeignKey("supplier_offerings.id", ondelete="CASCADE"), unique=True, nullable=False, index=True
+    )
+    model_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    embedding: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, server_default=func.now(), nullable=False
+    )
+
+    offering: Mapped[SupplierOffering] = relationship(back_populates="image_embedding")
 
 
 class AuditLog(Base):

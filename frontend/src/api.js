@@ -226,3 +226,50 @@ export async function uploadSupplierDocument(file) {
   });
   return parseResponse(response);
 }
+
+export function getAiProductFinderStatus() {
+  return request("/ai-product-finder/status");
+}
+
+export async function searchAiProductFinder(file) {
+  const body = new FormData();
+  body.append("file", file);
+  const response = await fetch("/ai-product-finder/search", {
+    method: "POST",
+    credentials: "include",
+    body,
+  });
+  return parseResponse(response);
+}
+
+export async function uploadOfferingProductImage(offeringId, file) {
+  const body = new FormData();
+  body.append("file", file);
+  const response = await fetch(`/offerings/${offeringId}/product-image`, {
+    method: "POST",
+    credentials: "include",
+    body,
+  });
+  return parseResponse(response);
+}
+
+export function deleteOfferingProductImage(offeringId) {
+  return request(`/offerings/${offeringId}/product-image`, { method: "DELETE" });
+}
+
+export function extractOfferingProductImages(offeringId) {
+  return request(`/offerings/${offeringId}/extract-product-images`, { method: "POST" });
+}
+
+export function extractSupplierDocumentImages(documentId) {
+  return request(`/supplier-documents/${documentId}/extract-product-images`, { method: "POST" });
+}
+
+export function selectOfferingProductImage(offeringId, candidateId, documentId) {
+  const body = { candidate_id: candidateId };
+  if (documentId != null) body.document_id = documentId;
+  return request(`/offerings/${offeringId}/select-product-image`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}

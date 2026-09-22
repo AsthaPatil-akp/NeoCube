@@ -10,6 +10,7 @@ import {
   updateRequirement,
   uploadDocument,
 } from "../api";
+import "./RequirementForm.css";
 
 const CURRENCIES = ["INR", "USD", "EUR", "GBP", "AED"];
 
@@ -179,8 +180,8 @@ export default function RequirementForm() {
 
   return (
     <Layout>
-      <section className="auth-layout profile-edit">
-        <div className="auth-panel">
+      <section className="requirement-form-page">
+        <div className="requirement-form-page__intro">
           <p className="eyebrow">Client requirement</p>
           <h1>{editing ? "Edit requirement." : "New requirement."}</h1>
           <p className="lede">
@@ -188,17 +189,27 @@ export default function RequirementForm() {
           </p>
           {error && <p className="banner banner-error">{error}</p>}
           {notice && <p className="banner banner-success">{notice}</p>}
-          <form
-            className="stack-form compact-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              save(editing ? undefined : "SUBMITTED");
-            }}
-          >
-            <label>
-              Optional document
-              <input type="file" accept=".pdf,.docx,.txt,application/pdf,.txt" onChange={handleUpload} />
-            </label>
+        </div>
+        <form
+          className="stack-form compact-form requirement-form-page__body"
+          onSubmit={(event) => {
+            event.preventDefault();
+            save(editing ? undefined : "SUBMITTED");
+          }}
+        >
+          <div className="requirement-form-page__media">
+            {!editing && (
+              <label>
+                Optional document
+                <input type="file" accept=".pdf,.docx,.txt,application/pdf,.txt" onChange={handleUpload} />
+              </label>
+            )}
+            <p className="lede">
+              Upload a PDF, Word, or text file on the left if you have one. Review the extracted fields on the right,
+              then save once.
+            </p>
+          </div>
+          <div className="requirement-form-page__fields">
             <div className="form-grid">
               <label>
                 Company / client name
@@ -288,15 +299,16 @@ export default function RequirementForm() {
                   required
                 />
               </label>
+              <label className="span-2">
+                Additional notes
+                <textarea
+                  maxLength={2000}
+                  rows={2}
+                  value={form.additional_notes}
+                  onChange={(event) => update("additional_notes", event.target.value)}
+                />
+              </label>
             </div>
-            <label>
-              Additional notes
-              <textarea
-                maxLength={2000}
-                value={form.additional_notes}
-                onChange={(event) => update("additional_notes", event.target.value)}
-              />
-            </label>
             <div className="actions-row">
               {!editing && (
                 <button className="btn btn-ghost" type="button" disabled={submitting} onClick={() => save("DRAFT")}>
@@ -307,17 +319,11 @@ export default function RequirementForm() {
                 {submitting ? "Saving…" : editing ? "Save changes →" : "Submit requirement →"}
               </button>
             </div>
-          </form>
-          <p className="form-foot">
-            <Link to={editing ? `/requirements/${id}` : "/dashboard"}>Back</Link>
-          </p>
-        </div>
-        <div className="auth-photo">
-          <img
-            src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1400&q=80"
-            alt="Reviewing company data for matching"
-          />
-        </div>
+            <p className="form-foot">
+              <Link to={editing ? `/requirements/${id}` : "/dashboard"}>Back</Link>
+            </p>
+          </div>
+        </form>
       </section>
     </Layout>
   );

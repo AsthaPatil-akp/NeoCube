@@ -344,6 +344,10 @@ class OfferingResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     matches: list[RequirementMatchSummary] = []
+    has_product_image: bool = False
+    product_image_url: str | None = None
+    product_image_indexed: bool = False
+    product_image_source: str | None = None
 
 
 class NotificationResponse(BaseModel):
@@ -562,3 +566,52 @@ class DocumentExtractResponse(BaseModel):
     processing_status: str
     extracted: ExtractedFields
     error_message: str | None = None
+
+
+class AiProductFinderStatus(BaseModel):
+    enabled: bool = True
+    model_available: bool
+    model_version: str | None = None
+    embedding_dimension: int | None = None
+    number_of_indexed_supplier_images: int = 0
+    message: str | None = None
+
+
+class AiVisualMatchResult(BaseModel):
+    supplier_id: int
+    offering_id: int
+    supplier_name: str
+    product_offered: str
+    category_name: str
+    location: str
+    available_quantity: int
+    quantity_unit: str | None = None
+    visual_similarity: float
+    model_version: str
+    product_image_url: str | None = None
+
+
+class AiProductFinderSearchResponse(BaseModel):
+    results: list[AiVisualMatchResult]
+    result_count: int
+    message: str | None = None
+
+
+class ProductImageCandidate(BaseModel):
+    candidate_id: str
+    preview_url: str
+    width: int
+    height: int
+    source_hint: str | None = None
+
+
+class ExtractProductImagesResponse(BaseModel):
+    offering_id: int | None = None
+    document_id: int | None = None
+    candidates: list[ProductImageCandidate]
+    message: str | None = None
+
+
+class SelectProductImageRequest(BaseModel):
+    candidate_id: str
+    document_id: int | None = None

@@ -1,0 +1,114 @@
+.ai-product-finder {
+  margin: 1.25rem 0 0.5rem;
+}
+
+.ai-product-finder--hero {
+  margin: 0;
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.ai-product-finder__launch {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ai-product-finder--hero .ai-product-finder__launch {
+  justify-content: flex-end;
+}
+
+.ai-product-finder--hero .ai-product-finder__launch .btn {
+  height: 2.875rem;
+  padding: 0 1.35rem;
+  font-size: 0.74rem;
+  line-height: 1;
+  letter-spacing: 0.14em;
+}
+
+.ai-product-finder__panel {
+  border-top: 1px solid rgba(20, 40, 20, 0.08);
+  padding-top: 0.75rem;
+}
+
+.ai-product-finder--hero:has(.ai-product-finder__panel) {
+  flex: 1 1 100%;
+  width: 100%;
+  align-self: stretch;
+}
+
+.ai-product-finder--page {
+  margin: 0;
+}
+
+.ai-product-finder--page .ai-product-finder__upload {
+  margin-top: 0.5rem;
+}
+
+.ai-product-finder__upload {
+  display: grid;
+  gap: 0.65rem;
+  max-width: 36rem;
+}
+
+.ai-product-finder__hint {
+  margin: 0;
+  opacity: 0.75;
+  font-size: 0.9rem;
+}
+
+.ai-product-finder__preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.ai-product-finder__preview img {
+  width: min(100%, 220px);
+  height: auto;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.ai-product-finder__results {
+  margin-top: 1.25rem;
+}
+
+.client-dashboard-hero {
+  display: grid;
+  gap: 1.6rem;
+}
+
+.client-dashboard-hero__head {
+  display: block;
+}
+
+.client-dashboard-hero__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem 1.5rem;
+}
+
+.client-dashboard-hero__title-row h1 {
+  margin: 0;
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+@media (max-width: 720px) {
+  .client-dashboard-hero__title-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ai-product-finder__launch,
+  .ai-product-finder--hero .ai-product-finder__launch {
+    justify-content: flex-start;
+  }
+
+  .ai-product-finder--hero .ai-product-finder__launch .btn {
+    width: fit-content;
+  }
+}

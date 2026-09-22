@@ -106,6 +106,28 @@ export default function OfferingDetail() {
                 <dt>Notes</dt>
                 <dd>{item.additional_notes || "—"}</dd>
               </div>
+              <div>
+                <dt>Product Image</dt>
+                <dd>
+                  {item.has_product_image ? (
+                    <>
+                      {item.product_image_url && (
+                        <img
+                          src={item.product_image_url}
+                          alt="Product"
+                          style={{ maxWidth: 160, display: "block", marginBottom: "0.5rem", borderRadius: 8 }}
+                        />
+                      )}
+                      Source:{" "}
+                      {item.product_image_source === "DOCUMENT_EXTRACTION"
+                        ? "Extracted from Document"
+                        : "Direct Upload"}
+                    </>
+                  ) : (
+                    "None"
+                  )}
+                </dd>
+              </div>
             </dl>
             <div className="actions-row">
               {["DRAFT", "ACTIVE", "UNAVAILABLE"].includes(item.status) && (

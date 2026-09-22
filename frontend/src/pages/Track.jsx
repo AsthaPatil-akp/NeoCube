@@ -64,7 +64,7 @@ export default function Track() {
         {tracked.length === 0 ? (
           <p className="lede">No accepted requests to track yet.</p>
         ) : (
-          <div className="history-list">
+          <div className="track-list">
             {tracked.map((item) => {
               const status = trackStatus(item);
               const step = trackStepIndex(status);
@@ -72,7 +72,7 @@ export default function Track() {
               const tracking = item.tracking || {};
               const completed = tracking.completed || step >= 3;
               return (
-                <article className="history-item" key={item.id}>
+                <article className="history-item track-tile" key={item.id}>
                   <span className={`history-mark${completed ? " is-complete" : ""}`} aria-hidden="true" />
                   <div className="history-body">
                     <div className="history-top">

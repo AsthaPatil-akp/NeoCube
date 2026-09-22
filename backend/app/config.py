@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     admin_password: str | None = None
     model_dir: str = "models"
     n8n_webhook_url: str | None = None
+    ai_product_finder_enabled: bool = True
+    vision_model_dir: str = "models/vision"
+    vision_dataset_dir: str = "vision_dataset"
+    max_product_image_bytes: int = 5_000_000
 
     @property
     def session_https_only(self) -> bool:

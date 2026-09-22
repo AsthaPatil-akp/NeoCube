@@ -5,11 +5,18 @@ import { useAuth } from "../AuthContext";
 import {
   ApiError,
   createOffering,
+  deleteOfferingProductImage,
+  extractOfferingProductImages,
+  extractSupplierDocumentImages,
   getCategories,
   getOffering,
+  selectOfferingProductImage,
   updateOffering,
+  uploadOfferingProductImage,
   uploadSupplierDocument,
 } from "../api";
+import { isAllowedProductImage } from "../aiProductFinder";
+import "./OfferingForm.css";
 
 const CURRENCIES = ["INR", "USD", "EUR", "GBP", "AED"];
 
@@ -60,6 +67,16 @@ export default function OfferingForm() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [hasProductImage, setHasProductImage] = useState(false);
+  const [productImageUrl, setProductImageUrl] = useState("");
+  const [productImageSource, setProductImageSource] = useState("");
+  const [pendingProductFile, setPendingProductFile] = useState(null);
+  const [pendingPreviewUrl, setPendingPreviewUrl] = useState("");
+  const [imageBusy, setImageBusy] = useState(false);
+  const [candidates, setCandidates] = useState([]);
+  const [selectedCandidateId, setSelectedCandidateId] = useState("");
+  const [candidateOfferingId, setCandidateOfferingId] = useState(null);
+  const [extractMessage, setExtractMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -88,6 +105,9 @@ export default function OfferingForm() {
                 delivery_capability: item.delivery_capability,
                 additional_notes: item.additional_notes || "",
               });
+              setHasProductImage(Boolean(item.has_product_image));
+              setProductImageUrl(item.product_image_url || "");
+              setProductImageSource(item.product_image_source || "");
             })
             .catch((err) => {
               if (!cancelled) setError(err instanceof ApiError ? err.message : "Unable to load offering");
@@ -101,6 +121,124 @@ export default function OfferingForm() {
       cancelled = true;
     };
   }, [editing, id]);
+
+  async function handleProductImage(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!isAllowedProductImage(file)) {
+      setError("Product image must be JPG, JPEG, PNG, or WEBP (max 5 MB).");
+      event.target.value = "";
+      return;
+    }
+    setError("");
+    setNotice("");
+    setCandidates([]);
+    setSelectedCandidateId("");
+    setExtractMessage("");
+
+    if (!editing) {
+      if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
+      setPendingProductFile(file);
+      setPendingPreviewUrl(URL.createObjectURL(file));
+      setNotice("Product image selected. It will upload when you save the offering.");
+      event.target.value = "";
+      return;
+    }
+
+    setImageBusy(true);
+    try {
+      const updated = await uploadOfferingProductImage(id, file);
+      applyImageState(updated);
+      setNotice(
+        updated.product_image_indexed
+          ? "Product image indexed for AI Product Finder."
+          : "Product image saved. Visual indexing will work once the vision model is available.",
+      );
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Unable to upload product image");
+    } finally {
+      setImageBusy(false);
+      event.target.value = "";
+    }
+  }
+
+  function applyImageState(updated) {
+    setHasProductImage(Boolean(updated.has_product_image));
+    setProductImageUrl(updated.product_image_url || "");
+    setProductImageSource(updated.product_image_source || "");
+    setPendingProductFile(null);
+    if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
+    setPendingPreviewUrl("");
+  }
+
+  function clearPendingProductImage() {
+    if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
+    setPendingProductFile(null);
+    setPendingPreviewUrl("");
+  }
+
+  async function removeProductImage() {
+    if (!editing) {
+      clearPendingProductImage();
+      return;
+    }
+    setError("");
+    setImageBusy(true);
+    try {
+      const updated = await deleteOfferingProductImage(id);
+      applyImageState(updated);
+      setNotice("Product image removed.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Unable to remove product image");
+    } finally {
+      setImageBusy(false);
+    }
+  }
+
+  async function runDocumentImageExtraction(offeringId) {
+    setImageBusy(true);
+    setExtractMessage("");
+    setCandidates([]);
+    setSelectedCandidateId("");
+    try {
+      const result = await extractOfferingProductImages(offeringId);
+      setCandidateOfferingId(offeringId);
+      setCandidates(result.candidates || []);
+      if (result.message) setExtractMessage(result.message);
+      if ((result.candidates || []).length === 0) {
+        setNotice(result.message || "No product image was found in this document.");
+      }
+      return result;
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Unable to extract images from document");
+      return null;
+    } finally {
+      setImageBusy(false);
+    }
+  }
+
+  async function useSelectedCandidate() {
+    if (!candidateOfferingId || !selectedCandidateId) {
+      setError("Select the image representing your product.");
+      return;
+    }
+    setImageBusy(true);
+    setError("");
+    try {
+      const updated = await selectOfferingProductImage(candidateOfferingId, selectedCandidateId);
+      applyImageState(updated);
+      setCandidates([]);
+      setSelectedCandidateId("");
+      setNotice("Selected document image saved as the product image.");
+      if (!editing) {
+        navigate(`/offerings/${candidateOfferingId}`);
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Unable to use selected image");
+    } finally {
+      setImageBusy(false);
+    }
+  }
 
   function update(field, value) {
     setForm((current) => {
@@ -165,6 +303,24 @@ export default function OfferingForm() {
         additional_notes: extracted.additional_notes || current.additional_notes,
       }));
       setNotice("Review the extracted fields, correct anything that looks wrong, then save.");
+      if (!pendingProductFile) {
+        try {
+          const images = await extractSupplierDocumentImages(result.id);
+          setCandidateOfferingId(null);
+          setSelectedCandidateId("");
+          setCandidates(images.candidates || []);
+          setExtractMessage(images.message || "");
+          if ((images.candidates || []).length > 0) {
+            setNotice(
+              "Select a product image on the left if you want one, then review the fields and publish once.",
+            );
+          } else if (images.message) {
+            setNotice(`${images.message} Review the extracted fields, then save.`);
+          }
+        } catch {
+          setCandidates([]);
+        }
+      }
     } catch (err) {
       setDocumentId(null);
       setError(err instanceof ApiError ? err.message : "Unable to process the document");
@@ -188,6 +344,11 @@ export default function OfferingForm() {
         navigate(`/offerings/${id}`);
       } else {
         const created = await createOffering(payload(status));
+        if (pendingProductFile) {
+          await uploadOfferingProductImage(created.id, pendingProductFile);
+        } else if (documentId && selectedCandidateId) {
+          await selectOfferingProductImage(created.id, selectedCandidateId, documentId);
+        }
         navigate(`/offerings/${created.id}`);
       }
     } catch (err) {
@@ -199,8 +360,8 @@ export default function OfferingForm() {
 
   return (
     <Layout>
-      <section className="auth-layout profile-edit">
-        <div className="auth-panel">
+      <section className="offering-form-page">
+        <div className="offering-form-page__intro">
           <p className="eyebrow">Supplier offering</p>
           <h1>{editing ? "Edit offering." : "New offering."}</h1>
           <p className="lede">
@@ -209,19 +370,98 @@ export default function OfferingForm() {
           </p>
           {error && <p className="banner banner-error">{error}</p>}
           {notice && <p className="banner banner-success">{notice}</p>}
-          <form
-            className="stack-form compact-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              save(editing ? undefined : "ACTIVE");
-            }}
-          >
+        </div>
+        <form
+          className="stack-form compact-form offering-form-page__body"
+          onSubmit={(event) => {
+            event.preventDefault();
+            save(editing ? undefined : "ACTIVE");
+          }}
+        >
+          <div className="offering-form-page__media">
             {!editing && (
               <label>
                 Optional document
                 <input type="file" accept=".pdf,.docx,.txt,application/pdf,.txt" onChange={handleUpload} />
               </label>
             )}
+            <label>
+              Product Image (Optional)
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                disabled={imageBusy || submitting}
+                onChange={handleProductImage}
+              />
+            </label>
+            {(pendingPreviewUrl || (hasProductImage && productImageUrl)) && (
+              <div className="offering-form-page__preview">
+                <img src={pendingPreviewUrl || productImageUrl} alt="Product" />
+                <div>
+                  {productImageSource && !pendingPreviewUrl && (
+                    <p className="lede">
+                      Source:{" "}
+                      {productImageSource === "DOCUMENT_EXTRACTION" ? "Extracted from Document" : "Direct Upload"}
+                    </p>
+                  )}
+                  <button className="btn btn-clear" type="button" disabled={imageBusy} onClick={removeProductImage}>
+                    {pendingPreviewUrl ? "Clear selected image" : "Remove product image"}
+                  </button>
+                </div>
+              </div>
+            )}
+            {editing && (
+              <div className="actions-row">
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  disabled={imageBusy}
+                  onClick={() => runDocumentImageExtraction(id)}
+                >
+                  Extract images from linked document
+                </button>
+              </div>
+            )}
+            {candidates.length > 0 && (
+              <div>
+                <h3>Product Images Found</h3>
+                <p className="lede">
+                  {editing
+                    ? "Select the image representing your product."
+                    : "Select the image representing your product, then publish. You only need to publish once."}
+                </p>
+                <div className="offering-form-page__candidates">
+                  {candidates.map((item) => (
+                    <label
+                      key={item.candidate_id}
+                      className="offering-form-page__candidate"
+                      style={{
+                        outline: selectedCandidateId === item.candidate_id ? "2px solid currentColor" : undefined,
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="product-image-candidate"
+                        value={item.candidate_id}
+                        checked={selectedCandidateId === item.candidate_id}
+                        onChange={() => setSelectedCandidateId(item.candidate_id)}
+                      />
+                      <img src={item.preview_url} alt={`Candidate ${item.width}×${item.height}`} />
+                    </label>
+                  ))}
+                </div>
+                {editing && (
+                  <div className="actions-row">
+                    <button className="btn" type="button" disabled={imageBusy || !selectedCandidateId} onClick={useSelectedCandidate}>
+                      Use Selected Image
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            {extractMessage && candidates.length === 0 && <p className="banner banner-error">{extractMessage}</p>}
+          </div>
+          <div className="offering-form-page__fields">
             <div className="form-grid">
               <label>
                 Supplier name
@@ -306,15 +546,16 @@ export default function OfferingForm() {
                   required
                 />
               </label>
+              <label className="span-2">
+                Additional notes
+                <textarea
+                  maxLength={2000}
+                  rows={2}
+                  value={form.additional_notes}
+                  onChange={(event) => update("additional_notes", event.target.value)}
+                />
+              </label>
             </div>
-            <label>
-              Additional notes
-              <textarea
-                maxLength={2000}
-                value={form.additional_notes}
-                onChange={(event) => update("additional_notes", event.target.value)}
-              />
-            </label>
             <div className="actions-row">
               {!editing && (
                 <button className="btn btn-ghost" type="button" disabled={submitting} onClick={() => save("DRAFT")}>
@@ -325,17 +566,11 @@ export default function OfferingForm() {
                 {submitting ? "Saving…" : editing ? "Save changes →" : "Publish offering →"}
               </button>
             </div>
-          </form>
-          <p className="form-foot">
-            <Link to={editing ? `/offerings/${id}` : "/supplier"}>Back</Link>
-          </p>
-        </div>
-        <div className="auth-photo">
-          <img
-            src="https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1400&q=80"
-            alt="Warehouse inventory prepared for supply"
-          />
-        </div>
+            <p className="form-foot">
+              <Link to={editing ? `/offerings/${id}` : "/supplier"}>Back</Link>
+            </p>
+          </div>
+        </form>
       </section>
     </Layout>
   );

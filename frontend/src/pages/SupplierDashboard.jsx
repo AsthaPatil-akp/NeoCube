@@ -36,12 +36,46 @@ function formatHistoryDate(value) {
   return date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
+function clearedHistoryKey(userId) {
+  return `neocube.supplierMatchHistoryCleared.${userId}`;
+}
+
+function loadClearedMatchIds(userId) {
+  if (!userId) return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(clearedHistoryKey(userId)) || "[]");
+    return Array.isArray(parsed) ? parsed.map(Number).filter(Number.isFinite) : [];
+  } catch {
+    return [];
+  }
+}
+
+function groupHistoryByClient(rows) {
+  const groups = new Map();
+  for (const row of rows) {
+    const name = String(row.match.company_name || "Client").trim() || "Client";
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push(row);
+  }
+  return [...groups.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([clientName, clientRows]) => ({
+      clientName,
+      rows: sortByMatchScore(clientRows, (row) => row.match.final_score),
+    }));
+}
+
 export default function SupplierDashboard() {
   const { user } = useAuth();
   const [offerings, setOfferings] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [rfqs, setRfqs] = useState([]);
   const [error, setError] = useState("");
+  const [clearedMatchIds, setClearedMatchIds] = useState(() => loadClearedMatchIds(user?.id));
+
+  useEffect(() => {
+    setClearedMatchIds(loadClearedMatchIds(user?.id));
+  }, [user?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,9 +102,11 @@ export default function SupplierDashboard() {
   const rfqsByPair = Object.fromEntries(
     rfqs.map((item) => [`${item.offering_id}:${item.requirement_id}`, item]),
   );
-  const historyRows = sortByMatchScore(
-    offerings.flatMap((item) =>
-      (item.matches || []).map((match) => ({
+  const clearedIdSet = new Set(clearedMatchIds);
+  const historyRows = offerings.flatMap((item) =>
+    (item.matches || [])
+      .filter((match) => !clearedIdSet.has(Number(match.id)))
+      .map((match) => ({
         offering: item,
         match,
         rfq:
@@ -78,9 +114,16 @@ export default function SupplierDashboard() {
           rfqsByPair[`${item.id}:${match.requirement_id}`] ||
           null,
       })),
-    ),
-    (row) => row.match.final_score,
   );
+  const historyGroups = groupHistoryByClient(historyRows);
+
+  function clearMatchHistory() {
+    if (historyRows.length === 0) return;
+    if (!window.confirm("Clear match history from this dashboard? New matches will still appear.")) return;
+    const next = [...new Set([...clearedMatchIds, ...historyRows.map((row) => Number(row.match.id))])];
+    localStorage.setItem(clearedHistoryKey(user.id), JSON.stringify(next));
+    setClearedMatchIds(next);
+  }
 
   async function handleDelete(id) {
     if (!window.confirm("Remove this offering from your dashboard?")) return;
@@ -140,7 +183,24 @@ export default function SupplierDashboard() {
                       {item.status} · {item.category_name} · {item.match_count} matches
                       {topMatch ? ` · ${formatMatchLabel(topMatch.final_score)}` : ""}
                     </p>
+                    {item.has_product_image ? (
+                      <p>
+                        Product Image · Source:{" "}
+                        {item.product_image_source === "DOCUMENT_EXTRACTION"
+                          ? "Extracted from Document"
+                          : "Direct Upload"}
+                      </p>
+                    ) : (
+                      <p>No product image</p>
+                    )}
                   </div>
+                  {item.has_product_image && item.product_image_url && (
+                    <img
+                      src={item.product_image_url}
+                      alt=""
+                      style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8 }}
+                    />
+                  )}
                   <Link className="btn" to={`/offerings/${item.id}`}>
                     View details
                   </Link>
@@ -170,46 +230,61 @@ export default function SupplierDashboard() {
       <section className="featured">
         <div className="section-head">
           <h2>Match history</h2>
+          {historyRows.length > 0 && (
+            <button className="btn btn-clear" type="button" onClick={clearMatchHistory}>
+              Clear history
+            </button>
+          )}
         </div>
         {historyRows.length === 0 ? (
           <p className="lede">No matching client requirements yet.</p>
         ) : (
-          <div className="history-list">
-            {historyRows.map(({ offering, match, rfq }) => {
-              const step = historyStepIndex(match, rfq);
-              const when = formatHistoryDate(rfq?.created_at);
-              return (
-                <article className="history-item" key={`${offering.id}-${match.id}`}>
-                  <span className={`history-mark${step >= 3 ? " is-complete" : ""}`} aria-hidden="true" />
-                  <div className="history-body">
-                    <div className="history-top">
-                      <h3>{match.product_requirement}</h3>
-                      {when && <p className="history-date">{when}</p>}
-                    </div>
-                    <p className="history-meta">
-                      {formatMatchLabel(match.final_score)} · {match.company_name} · {match.location} · qty{" "}
-                      {match.quantity} · {historyStatus(match, rfq)}
-                    </p>
-                    <ol className="history-steps">
-                      {HISTORY_STEPS.map((label, index) => (
-                        <li className={index <= step ? "is-done" : ""} key={label}>
-                          {label}
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                  {rfq ? (
-                    <Link className="btn" to={`/rfqs/${rfq.id}`}>
-                      View request
-                    </Link>
-                  ) : (
-                    <Link className="btn" to={`/offerings/${offering.id}`}>
-                      View details
-                    </Link>
-                  )}
-                </article>
-              );
-            })}
+          <div className="match-history-groups">
+            {historyGroups.map((group) => (
+              <div className="match-history-group" key={group.clientName}>
+                <h3 className="match-history-group__title">{group.clientName}</h3>
+                <p className="match-history-group__lede">
+                  {group.rows.length} {group.rows.length === 1 ? "match" : "matches"} for this client
+                </p>
+                <div className="history-list">
+                  {group.rows.map(({ offering, match, rfq }) => {
+                    const step = historyStepIndex(match, rfq);
+                    const when = formatHistoryDate(rfq?.created_at);
+                    return (
+                      <article className="history-item" key={`${offering.id}-${match.id}`}>
+                        <span className={`history-mark${step >= 3 ? " is-complete" : ""}`} aria-hidden="true" />
+                        <div className="history-body">
+                          <div className="history-top">
+                            <h3>{match.product_requirement}</h3>
+                            {when && <p className="history-date">{when}</p>}
+                          </div>
+                          <p className="history-meta">
+                            {formatMatchLabel(match.final_score)} · {match.location} · qty {match.quantity} ·{" "}
+                            {historyStatus(match, rfq)}
+                          </p>
+                          <ol className="history-steps">
+                            {HISTORY_STEPS.map((label, index) => (
+                              <li className={index <= step ? "is-done" : ""} key={label}>
+                                {label}
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                        {rfq ? (
+                          <Link className="btn" to={`/rfqs/${rfq.id}`}>
+                            View request
+                          </Link>
+                        ) : (
+                          <Link className="btn" to={`/offerings/${offering.id}`}>
+                            View details
+                          </Link>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>

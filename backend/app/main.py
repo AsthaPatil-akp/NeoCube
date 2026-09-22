@@ -13,6 +13,7 @@ from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.models import Category, Role, User
 from app.routers import admin as admin_router
+from app.routers import ai_product_finder as ai_product_finder_router
 from app.routers import auth as auth_router
 from app.routers import catalog as catalog_router
 from app.routers import documents as documents_router
@@ -147,6 +148,10 @@ def ensure_sqlite_columns() -> None:
             "price_amount": "INTEGER",
             "price_currency": "VARCHAR(8)",
             "price_basis": "VARCHAR(16)",
+            "product_image_path": "VARCHAR(255)",
+            "product_image_filename": "VARCHAR(255)",
+            "product_image_mime_type": "VARCHAR(80)",
+            "product_image_source": "VARCHAR(40)",
         },
     }
     with engine.begin() as connection:
@@ -157,6 +162,28 @@ def ensure_sqlite_columns() -> None:
             for name, ddl in columns.items():
                 if name not in existing:
                     connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+        if "product_image_embeddings" not in inspector.get_table_names():
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE product_image_embeddings (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        supplier_offering_id INTEGER NOT NULL UNIQUE,
+                        model_version VARCHAR(80) NOT NULL,
+                        embedding TEXT NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        FOREIGN KEY(supplier_offering_id) REFERENCES supplier_offerings (id) ON DELETE CASCADE
+                    )
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_product_image_embeddings_supplier_offering_id "
+                    "ON product_image_embeddings (supplier_offering_id)"
+                )
+            )
 
 
 @asynccontextmanager
@@ -227,3 +254,5 @@ app.include_router(notifications_router.router)
 app.include_router(rfqs_router.router)
 app.include_router(suppliers_router.router)
 app.include_router(admin_router.router)
+if settings.ai_product_finder_enabled:
+    app.include_router(ai_product_finder_router.router)

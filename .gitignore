@@ -11,6 +11,11 @@ app.db
 *.db
 uploads/
 backend/tests/_uploads/
+backend/vision_dataset/
+backend/models/vision/*.pth
+!backend/models/vision/product_vision_cnn_v1.pth
+backend/models/vision/*.eval.json
+!backend/models/vision/product_vision_cnn_v1.eval.json
 node_modules/
 dist/
 .DS_Store

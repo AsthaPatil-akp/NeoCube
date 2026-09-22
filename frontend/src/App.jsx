@@ -8,6 +8,7 @@ import ProtectedRoute from "./pages/ProtectedRoute";
 import Register from "./pages/Register";
 import RoleRoute from "./pages/RoleRoute";
 import ClientDashboard from "./pages/ClientDashboard";
+import AIProductFinder from "./pages/AIProductFinder";
 import RequirementForm from "./pages/RequirementForm";
 import RequirementDetail from "./pages/RequirementDetail";
 import SupplierDashboard from "./pages/SupplierDashboard";
@@ -34,6 +35,7 @@ export default function App() {
           </Route>
           <Route element={<RoleRoute roles={["CLIENT"]} />}>
             <Route path="/dashboard" element={<ClientDashboard />} />
+            <Route path="/ai-product-finder" element={<AIProductFinder />} />
             <Route path="/requirements/new" element={<RequirementForm />} />
             <Route path="/requirements/:id" element={<RequirementDetail />} />
             <Route path="/requirements/:id/edit" element={<RequirementForm />} />

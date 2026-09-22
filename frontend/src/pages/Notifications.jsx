@@ -78,10 +78,10 @@ export default function Notifications() {
           <h1 className="page-title">Notifications</h1>
           {items.length > 0 && (
             <div className="actions-row notification-clear-actions">
-              <button className="btn btn-ghost" type="button" disabled={busy || !selected.size} onClick={clearSelected}>
+              <button className="btn btn-clear" type="button" disabled={busy || !selected.size} onClick={clearSelected}>
                 Clear selected
               </button>
-              <button className="btn" type="button" disabled={busy} onClick={clearAll}>
+              <button className="btn btn-clear" type="button" disabled={busy} onClick={clearAll}>
                 Clear all
               </button>
             </div>

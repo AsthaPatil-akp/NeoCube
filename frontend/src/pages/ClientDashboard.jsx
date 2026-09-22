@@ -1,11 +1,44 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
+import AIProductFinderCard from "../components/AIProductFinderCard";
 import { useAuth } from "../AuthContext";
 import { formatMatchLabel, sortByMatchScore } from "../formatMatchScore";
 import { canSendMatchRequest } from "../matchRequest";
 import { supplierProfilePath } from "../supplierProfile";
 import { ApiError, cancelRequirement, createRfq, getNotifications, getRequirements } from "../api";
+
+function clearedMatchKey(userId) {
+  return `neocube.clientMatchesCleared.${userId}`;
+}
+
+function loadClearedMatchIds(userId) {
+  if (!userId) return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(clearedMatchKey(userId)) || "[]");
+    return Array.isArray(parsed) ? parsed.map(Number).filter(Number.isFinite) : [];
+  } catch {
+    return [];
+  }
+}
+
+function groupMatchesByRequirement(rows) {
+  const groups = new Map();
+  for (const row of rows) {
+    const key = row.requirement.id;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        requirement: row.requirement,
+        rows: [],
+      });
+    }
+    groups.get(key).rows.push(row);
+  }
+  return [...groups.values()].map((group) => ({
+    ...group,
+    rows: sortByMatchScore(group.rows, (row) => row.match.final_score),
+  }));
+}
 
 export default function ClientDashboard() {
   const { user } = useAuth();
@@ -14,6 +47,11 @@ export default function ClientDashboard() {
   const [notifications, setNotifications] = useState([]);
   const [error, setError] = useState("");
   const [sendingId, setSendingId] = useState(null);
+  const [clearedMatchIds, setClearedMatchIds] = useState(() => loadClearedMatchIds(user?.id));
+
+  useEffect(() => {
+    setClearedMatchIds(loadClearedMatchIds(user?.id));
+  }, [user?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,12 +73,21 @@ export default function ClientDashboard() {
   }, []);
 
   const matchCount = requirements.reduce((sum, item) => sum + (item.match_count || 0), 0);
-  const supplierMatches = sortByMatchScore(
-    requirements.flatMap((item) =>
-      (item.matches || []).map((match) => ({ requirement: item, match })),
-    ),
-    (row) => row.match.final_score,
+  const clearedIdSet = new Set(clearedMatchIds);
+  const supplierMatches = requirements.flatMap((item) =>
+    (item.matches || [])
+      .filter((match) => !clearedIdSet.has(Number(match.id)))
+      .map((match) => ({ requirement: item, match })),
   );
+  const matchGroups = groupMatchesByRequirement(supplierMatches);
+
+  function clearMatches() {
+    if (supplierMatches.length === 0) return;
+    if (!window.confirm("Clear matches from this dashboard? New matches will still appear.")) return;
+    const next = [...new Set([...clearedMatchIds, ...supplierMatches.map((row) => Number(row.match.id))])];
+    localStorage.setItem(clearedMatchKey(user.id), JSON.stringify(next));
+    setClearedMatchIds(next);
+  }
 
   async function handleDelete(id) {
     if (!window.confirm("Remove this closed requirement from your dashboard?")) return;
@@ -67,11 +114,16 @@ export default function ClientDashboard() {
 
   return (
     <Layout>
-      <section className="profile-hero">
-        <div>
-          <p className="eyebrow">Client portal</p>
-          <h1>{user.company_name || user.full_name}</h1>
-          <p className="role-chip">{user.role}</p>
+      <section className="profile-hero client-dashboard-hero">
+        <div className="client-dashboard-hero__head">
+          <div>
+            <p className="eyebrow">Client portal</p>
+            <div className="client-dashboard-hero__title-row">
+              <h1>{user.company_name || user.full_name}</h1>
+              <AIProductFinderCard placement="hero" />
+            </div>
+            <p className="role-chip">{user.role}</p>
+          </div>
         </div>
         <dl className="profile-facts kpi-facts">
           <div>
@@ -142,48 +194,62 @@ export default function ClientDashboard() {
       <section className="featured">
         <div className="section-head">
           <h2>Matches</h2>
+          {supplierMatches.length > 0 && (
+            <button className="btn btn-clear" type="button" onClick={clearMatches}>
+              Clear history
+            </button>
+          )}
         </div>
         {supplierMatches.length === 0 ? (
           <p className="lede">No supplier matches yet.</p>
         ) : (
-          <div className="card-grid tile-grid">
-            {supplierMatches.map(({ requirement, match }) => (
-              <article className="product-card portal-card tile-card" key={`${requirement.id}-${match.id}`}>
-                <div className="product-copy">
-                  <div className="tile-text">
-                    <p className="match-score-label">{formatMatchLabel(match.final_score)}</p>
-                    <h3>{match.product_offered}</h3>
-                    <p>
-                      {match.supplier_name} · {match.location} · {requirement.product_requirement} ·{" "}
-                      {match.rfq_status || match.match_status}
-                    </p>
-                  </div>
-                  <div className="actions-row">
-                    {supplierProfilePath(match.supplier_id, match) && (
-                      <Link className="btn" to={supplierProfilePath(match.supplier_id, match)}>
-                        View Supplier Profile
-                      </Link>
-                    )}
-                    <Link className="btn" to={`/requirements/${requirement.id}`}>
-                      View details
-                    </Link>
-                    {match.rfq_id ? (
-                      <Link className="btn" to={`/rfqs/${match.rfq_id}`}>
-                        View request
-                      </Link>
-                    ) : canSendMatchRequest(match) ? (
-                      <button
-                        className="btn"
-                        type="button"
-                        disabled={sendingId === match.id}
-                        onClick={() => sendRequest(match)}
-                      >
-                        Send Request
-                      </button>
-                    ) : null}
-                  </div>
+          <div className="match-history-groups">
+            {matchGroups.map((group) => (
+              <div className="match-history-group" key={group.requirement.id}>
+                <h3 className="match-history-group__title">{group.requirement.product_requirement}</h3>
+                <p className="match-history-group__lede">
+                  {group.rows.length} {group.rows.length === 1 ? "match" : "matches"} for this requirement
+                </p>
+                <div className="card-grid tile-grid">
+                  {group.rows.map(({ requirement, match }) => (
+                    <article className="product-card portal-card tile-card" key={`${requirement.id}-${match.id}`}>
+                      <div className="product-copy">
+                        <div className="tile-text">
+                          <p className="match-score-label">{formatMatchLabel(match.final_score)}</p>
+                          <h3>{match.product_offered}</h3>
+                          <p>
+                            {match.supplier_name} · {match.location} · {match.rfq_status || match.match_status}
+                          </p>
+                        </div>
+                        <div className="actions-row">
+                          {supplierProfilePath(match.supplier_id, match) && (
+                            <Link className="btn" to={supplierProfilePath(match.supplier_id, match)}>
+                              View Supplier Profile
+                            </Link>
+                          )}
+                          <Link className="btn" to={`/requirements/${requirement.id}`}>
+                            View details
+                          </Link>
+                          {match.rfq_id ? (
+                            <Link className="btn" to={`/rfqs/${match.rfq_id}`}>
+                              View request
+                            </Link>
+                          ) : canSendMatchRequest(match) ? (
+                            <button
+                              className="btn"
+                              type="button"
+                              disabled={sendingId === match.id}
+                              onClick={() => sendRequest(match)}
+                            >
+                              Send Request
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    </article>
+                  ))}
                 </div>
-              </article>
+              </div>
             ))}
           </div>
         )}

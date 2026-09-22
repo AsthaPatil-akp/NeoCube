@@ -89,6 +89,19 @@ Writes:
 - `backend/ml_pipeline/data/curated_match_pairs.csv`
 - `backend/ml_pipeline/eda/`
 
+### AI Product Finder (optional vision CNN)
+
+Isolated image-based supplier discovery. Independent of LSA/RF match scores. See `docs/AI_PRODUCT_FINDER.md`.
+
+```bash
+cd backend
+.venv\Scripts\python.exe -m app.vision.build_dataset --per-class 40
+.venv\Scripts\python.exe -m app.vision.train --epochs 8
+.venv\Scripts\python.exe -m app.vision.evaluate
+```
+
+Disable with `AI_PRODUCT_FINDER_ENABLED=false`.
+
 ## Environment variables
 
 Copy `.env.example` to `backend/.env`:
@@ -104,6 +117,9 @@ Copy `.env.example` to `backend/.env`:
 | `MAX_UPLOAD_BYTES` | default `5000000` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | optional startup seed for a non-public ADMIN account |
 | `MODEL_DIR` | default `models` |
+| `AI_PRODUCT_FINDER_ENABLED` | optional vision feature; default `true` |
+| `VISION_MODEL_DIR` | default `models/vision` |
+| `VISION_DATASET_DIR` | default `vision_dataset` |
 | `N8N_WEBHOOK_URL` | optional; leave empty if N8N is not running |
 
 Never commit `.env`.
