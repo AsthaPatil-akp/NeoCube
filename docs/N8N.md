@@ -30,6 +30,8 @@ Do **not** use Get Row By ID with `event_id`. If you use a Data Table at all, fi
 
 ## Flow
 
+![n8n Client Supplier Notification Hub](n8n-workflow.png)
+
 ```
 Application commit
   → notify_n8n (deterministic event_id, POST JSON, 10s timeout)

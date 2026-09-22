@@ -236,16 +236,16 @@ This is the production n8n workflow currently used by NeoCube:
 ![n8n Client Supplier Notification Hub](docs/n8n-workflow.png)
 
 ```
-Webhook
+Webhook (POST)
   → Normalize Event
   → Check Duplicate
-  → Already Processed?
-  → Has Recipient?
+  → Lookup Failed? / Invalid Event? / Already Processed? / Has Recipient?
   → Route by Event Type
-      MATCH_CREATED        → Email Client — Match Created
+      MATCH_CREATED        → Email Supplier — Match Created
       CLIENT_REQUEST_SENT  → Email Supplier — Client Request
       SUPPLIER_ACCEPTED    → Email Client — Supplier Accepted
       SUPPLIER_DECLINED    → Email Client — Supplier Declined
+      (other)              → Skip Unrouted Event
   → Log processed event
 ```
 
