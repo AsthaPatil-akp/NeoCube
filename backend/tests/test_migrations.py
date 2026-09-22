@@ -34,6 +34,7 @@ def test_schema_is_alembic_head():
         "supplier_reviews",
         "product_image_embeddings",
         "audit_logs",
+        "n8n_emitted_events",
     ):
         assert name in tables
     assert "route_estimates" not in tables
@@ -73,4 +74,4 @@ def test_schema_is_alembic_head():
     finally:
         db.close()
     assert version == alembic_head_revision()
-    assert version == "012_product_image_source"
+    assert version == "013_n8n_emitted_events"

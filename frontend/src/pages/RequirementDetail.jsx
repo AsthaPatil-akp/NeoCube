@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
-import { formatMatchLabel, sortByMatchScore } from "../formatMatchScore";
+import { sortByMatchScore } from "../formatMatchScore";
+import MatchExplain from "../components/MatchExplain";
 import { canSendMatchRequest } from "../matchRequest";
 import { supplierProfilePath } from "../supplierProfile";
 import { ApiError, cancelRequirement, createRfq, getRequirement, updateRequirement } from "../api";
@@ -184,13 +185,16 @@ export default function RequirementDetail() {
             {sortByMatchScore(item.matches).map((match) => (
               <article className="product-card portal-card tile-card" key={match.id}>
                 <div className="product-copy">
-                  <div className="tile-text">
-                    <p className="match-score-label">{formatMatchLabel(match.final_score)}</p>
+                    <div className="tile-text">
+                    <MatchExplain
+                      score={match.final_score}
+                      reasons={match.explanation}
+                      semanticScore={match.semantic_score}
+                    />
                     <h3>{match.product_offered}</h3>
                     <p>
                       {match.supplier_name} · {match.location} · {match.rfq_status || match.match_status}
                     </p>
-                    {match.explanation?.length > 0 && <p>{match.explanation.join(" · ")}</p>}
                     {expandedId === match.id && (
                       <dl className="profile-facts">
                         <div>

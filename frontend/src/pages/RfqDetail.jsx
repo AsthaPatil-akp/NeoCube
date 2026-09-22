@@ -137,7 +137,7 @@ export default function RfqDetail() {
               <dd>{item.additional_notes || item.notes || "—"}</dd>
             </div>
             <div>
-              <dt>Match score</dt>
+              <dt>ML Match Score</dt>
               <dd>{formatMatchScore(item.match_score)}</dd>
             </div>
           </dl>

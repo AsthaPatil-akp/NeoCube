@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../components/Layout";
 import { useAuth } from "../AuthContext";
-import { formatMatchLabel, sortByMatchScore } from "../formatMatchScore";
+import { formatMatchLabel, formatMatchScore, sortByMatchScore } from "../formatMatchScore";
 import { ApiError, deactivateOffering, getNotifications, getOfferings, getRfqs } from "../api";
 
 const HISTORY_STEPS = ["Matched", "Requested", "Quoted", "Closed"];
@@ -259,7 +259,7 @@ export default function SupplierDashboard() {
                             {when && <p className="history-date">{when}</p>}
                           </div>
                           <p className="history-meta">
-                            {formatMatchLabel(match.final_score)} · {match.location} · qty {match.quantity} ·{" "}
+                            ML score {formatMatchScore(match.final_score)} · {match.location} · qty {match.quantity} ·{" "}
                             {historyStatus(match, rfq)}
                           </p>
                           <ol className="history-steps">

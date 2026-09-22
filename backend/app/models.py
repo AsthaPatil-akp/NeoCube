@@ -392,6 +392,18 @@ class ProductImageEmbedding(Base):
     offering: Mapped[SupplierOffering] = relationship(back_populates="image_embedding")
 
 
+class N8nEmittedEvent(Base):
+    """App-side idempotency for outbound n8n POSTs. Not the n8n Data Table row id."""
+
+    __tablename__ = "n8n_emitted_events"
+
+    event_id: Mapped[str] = mapped_column(String(160), primary_key=True)
+    event_type: Mapped[str | None] = mapped_column(String(80))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, server_default=func.now(), nullable=False
+    )
+
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 

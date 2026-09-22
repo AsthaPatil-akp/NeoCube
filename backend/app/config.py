@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     admin_password: str | None = None
     model_dir: str = "models"
     n8n_webhook_url: str | None = None
+    n8n_callback_token: str | None = None
+    n8n_webhook_timeout_seconds: float = 10.0
     ai_product_finder_enabled: bool = True
     vision_model_dir: str = "models/vision"
     vision_dataset_dir: str = "vision_dataset"

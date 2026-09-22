@@ -400,7 +400,15 @@ def create_quotation(
     )
     db.commit()
     db.refresh(quote)
-    notify_n8n({"event": "quotation.created", "event_type": "quotation.created", "rfq_id": rfq.id, "quotation_total": total})
+    notify_n8n(
+        {
+            "event": "quotation.created",
+            "event_type": "quotation.created",
+            "event_id": f"quotation.created:{quote.id}",
+            "rfq_id": rfq.id,
+            "quotation_total": total,
+        }
+    )
     return QuotationResponse(
         id=quote.id,
         rfq_id=quote.rfq_id,

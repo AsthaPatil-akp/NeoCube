@@ -9,7 +9,18 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
 from app.config import settings
-from app.models import ClientProfile, ClientRequirement, Match, Rfq, SupplierOffering, SupplierProfile, User
+from app.database import SessionLocal
+from app.models import (
+    ClientProfile,
+    ClientRequirement,
+    Match,
+    N8nEmittedEvent,
+    Rfq,
+    SupplierOffering,
+    SupplierProfile,
+    User,
+)
+from app.n8n_workflow_logic import format_match_score_percent
 from app.taxonomy import effective_category_name, is_other_name
 
 logger = logging.getLogger("neocube")
@@ -31,6 +42,33 @@ CLIENT_RECIPIENT_EVENTS = {SUPPLIER_ACCEPTED, SUPPLIER_DECLINED, SHIPMENT_SHIPPE
 
 def reset_n8n_idempotency() -> None:
     _SENT_EVENT_IDS.clear()
+
+
+def _already_emitted(event_id: str) -> bool:
+    if event_id in _SENT_EVENT_IDS:
+        return True
+    db = SessionLocal()
+    try:
+        return db.get(N8nEmittedEvent, event_id) is not None
+    except Exception:
+        logger.warning("n8n idempotency lookup failed event_id=%s", event_id)
+        return event_id in _SENT_EVENT_IDS
+    finally:
+        db.close()
+
+
+def _mark_emitted(event_id: str, event_type: str | None) -> None:
+    _SENT_EVENT_IDS.add(event_id)
+    db = SessionLocal()
+    try:
+        if db.get(N8nEmittedEvent, event_id) is None:
+            db.add(N8nEmittedEvent(event_id=event_id, event_type=event_type or None))
+            db.commit()
+    except Exception:
+        db.rollback()
+        logger.warning("n8n idempotency persist failed event_id=%s", event_id)
+    finally:
+        db.close()
 
 
 def _format_explanation(raw: str | None) -> str:
@@ -160,7 +198,7 @@ def _email_copy(event_type: str, payload: dict) -> tuple[str, str]:
                 ("Product", product),
                 ("Category", category),
                 ("Quantity", quantity),
-                ("Match Score", payload.get("match_score")),
+                ("Match Score", _match_score_display(payload)),
                 ("Match Explanation", payload.get("match_explanation")),
             ]
         )
@@ -174,7 +212,7 @@ def _email_copy(event_type: str, payload: dict) -> tuple[str, str]:
                 ("Category", category),
                 ("Quantity", quantity),
                 ("Required delivery", payload.get("delivery_timeline")),
-                ("Match score", payload.get("match_score")),
+                ("Match score", _match_score_display(payload)),
             ]
         )
         instruction = "Review this request in your NeoCube supplier portal."
@@ -214,8 +252,24 @@ def _email_copy(event_type: str, payload: dict) -> tuple[str, str]:
     return event_type, ""
 
 
+def _match_score_display(payload: dict) -> str | None:
+    score = payload.get("match_score")
+    if score is None or score == "":
+        return None
+    percent = payload.get("match_score_percent") or format_match_score_percent(score)
+    if percent:
+        return f"{score} ({percent})"
+    return str(score)
+
+
 def _attach_email_routing(payload: dict) -> dict:
-    payload["recipient_email"] = _recipient_for(payload)
+    if payload.get("match_score") is not None and payload.get("match_score") != "":
+        payload["match_score_percent"] = payload.get("match_score_percent") or format_match_score_percent(
+            payload.get("match_score")
+        )
+    recipient = _recipient_for(payload)
+    payload["recipient_email"] = recipient or None
+    payload["has_recipient"] = bool(recipient)
     subject, body = _email_copy(payload.get("event_type"), payload)
     payload["email_subject"] = subject
     payload["email_body"] = body
@@ -233,6 +287,8 @@ def match_created_payload(
         "event_type": MATCH_CREATED,
         "event_id": f"{MATCH_CREATED}:{match.id}",
         "match_id": match.id,
+        "requirement_id": requirement.id,
+        "offering_id": offering.id,
         "request_id": None,
         "client_id": requirement.client_id,
         "supplier_id": offering.supplier_id,
@@ -270,6 +326,8 @@ def request_event_payload(
         "event_id": f"{event_type}:{rfq.id}",
         "request_id": rfq.id,
         "match_id": rfq.match_id,
+        "requirement_id": requirement.id,
+        "offering_id": offering.id,
         "client_id": requirement.client_id,
         "supplier_id": offering.supplier_id,
         "client_name": requirement.company_name,
@@ -302,40 +360,49 @@ def emit_n8n(payloads: list[dict] | None) -> None:
 def notify_n8n(payload: dict) -> None:
     event = payload.get("event_type") or payload.get("event")
     event_id = payload.get("event_id")
-    if event_id and event_id in _SENT_EVENT_IDS:
-        logger.info("n8n webhook skipped: duplicate event_id=%s", event_id)
+    event_id_text = str(event_id).strip() if event_id is not None else ""
+    if not event_id_text:
+        logger.warning("n8n webhook skipped: missing event_id event=%s", event)
+        return
+    if _already_emitted(event_id_text):
+        logger.info("n8n webhook skipped: duplicate event_id=%s", event_id_text)
         return
     recipient = _recipient_for(payload)
-    payload["recipient_email"] = recipient
+    payload["recipient_email"] = recipient or None
+    payload["has_recipient"] = bool(recipient)
+    if payload.get("match_score") is not None and payload.get("match_score") != "":
+        payload["match_score_percent"] = payload.get("match_score_percent") or format_match_score_percent(
+            payload.get("match_score")
+        )
     if not recipient:
         logger.warning(
-            "n8n webhook skipped: notification recipient unavailable event=%s event_id=%s",
+            "n8n webhook posting without recipient event=%s event_id=%s",
             event,
-            event_id,
+            event_id_text,
         )
-        return
     if event == MATCH_CREATED:
         keys = ",".join(payload.keys())
         logger.info("MATCH_CREATED n8n webhook attempted keys=%s", keys)
     logger.info(
-        "n8n payload recipients event=%s client_email=%s supplier_email=%s recipient_email=%s",
+        "n8n payload recipients event=%s client_email=%s supplier_email=%s recipient_email=%s has_recipient=%s",
         event,
         payload.get("client_email"),
         payload.get("supplier_email"),
-        recipient,
+        recipient or None,
+        bool(recipient),
     )
     url = (settings.n8n_webhook_url or "").strip()
     if not url:
         logger.warning("n8n webhook skipped: URL not configured")
         return
+    timeout = float(settings.n8n_webhook_timeout_seconds or 10.0)
     try:
-        response = httpx.post(url, json=payload, timeout=5.0)
+        response = httpx.post(url, json=payload, timeout=timeout)
     except Exception:
         logger.warning("n8n webhook result: failure event=%s reason=network_or_timeout", event)
         return
     if response.status_code >= 400:
         logger.warning("n8n webhook result: failure event=%s status=%s", event, response.status_code)
         return
-    if event_id:
-        _SENT_EVENT_IDS.add(str(event_id))
+    _mark_emitted(event_id_text, str(event) if event else None)
     logger.info("n8n webhook result: success event=%s status=%s", event, response.status_code)

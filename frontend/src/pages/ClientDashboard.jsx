@@ -4,6 +4,7 @@ import Layout from "../components/Layout";
 import AIProductFinderCard from "../components/AIProductFinderCard";
 import { useAuth } from "../AuthContext";
 import { formatMatchLabel, sortByMatchScore } from "../formatMatchScore";
+import MatchExplain from "../components/MatchExplain";
 import { canSendMatchRequest } from "../matchRequest";
 import { supplierProfilePath } from "../supplierProfile";
 import { ApiError, cancelRequirement, createRfq, getNotifications, getRequirements } from "../api";
@@ -215,7 +216,11 @@ export default function ClientDashboard() {
                     <article className="product-card portal-card tile-card" key={`${requirement.id}-${match.id}`}>
                       <div className="product-copy">
                         <div className="tile-text">
-                          <p className="match-score-label">{formatMatchLabel(match.final_score)}</p>
+                          <MatchExplain
+                            score={match.final_score}
+                            reasons={match.explanation}
+                            semanticScore={match.semantic_score}
+                          />
                           <h3>{match.product_offered}</h3>
                           <p>
                             {match.supplier_name} · {match.location} · {match.rfq_status || match.match_status}

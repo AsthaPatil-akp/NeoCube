@@ -18,12 +18,12 @@ test("formats null as Not available", () => {
   assert.equal(formatMatchScore(null), "Not available");
 });
 
-test("formats 0.8 as 80% match", () => {
-  assert.equal(formatMatchLabel(0.8), "80% match");
+test("formats 0.8 as 80% ML score", () => {
+  assert.equal(formatMatchLabel(0.8), "80% ML score");
 });
 
-test("formats 1 as 100% match", () => {
-  assert.equal(formatMatchLabel(1), "100% match");
+test("formats 1 as 100% ML score", () => {
+  assert.equal(formatMatchLabel(1), "100% ML score");
 });
 
 test("sorts matches highest percent first", () => {

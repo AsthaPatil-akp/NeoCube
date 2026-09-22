@@ -16,7 +16,14 @@ export function formatMatchScore(value) {
 export function formatMatchLabel(value) {
   const score = formatMatchScore(value);
   if (score === "Not available") return score;
-  return `${score} match`;
+  return `${score} ML score`;
+}
+
+export const LOW_TEXT_SIMILARITY = 0.35;
+
+export function hasLowTextSimilarity(value) {
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) && numeric < LOW_TEXT_SIMILARITY;
 }
 
 export function matchScoreValue(value) {

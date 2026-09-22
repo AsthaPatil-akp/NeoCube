@@ -161,3 +161,27 @@ def test_explanations_are_not_emitted_for_failed_checks():
     scored = score_pair(requirement, offering, encoder, model)
     assert scored is not None
     assert "Within budget" not in scored["explanation"]
+
+
+def test_placeholder_image_product_name_is_not_rejected():
+    encoder = SemanticEncoder.load()
+    model = load_match_model()
+    requirement, offering = _pair()
+    offering.product_offered = "Image"
+    scored = score_pair(requirement, offering, encoder, model)
+    assert scored is not None
+    assert scored["final_score"] == scored["ml_score"]
+    assert scored["model_version"] == "supplier_match_model_v1"
+
+
+def test_product_compatible_requires_known_family():
+    encoder = SemanticEncoder.load()
+    model = load_match_model()
+    requirement, offering = _pair()
+    offering.product_offered = "Image"
+    scored = score_pair(requirement, offering, encoder, model)
+    assert scored is not None
+    assert "Product compatible" not in scored["explanation"]
+    requirement, offering = _pair()
+    scored = score_pair(requirement, offering, encoder, model)
+    assert "Product compatible" in scored["explanation"]

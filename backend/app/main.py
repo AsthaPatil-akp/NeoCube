@@ -18,6 +18,7 @@ from app.routers import auth as auth_router
 from app.routers import catalog as catalog_router
 from app.routers import documents as documents_router
 from app.routers import notifications as notifications_router
+from app.routers import n8n_bridge as n8n_bridge_router
 from app.routers import offerings as offerings_router
 from app.routers import requirements as requirements_router
 from app.routers import rfqs as rfqs_router
@@ -184,6 +185,18 @@ def ensure_sqlite_columns() -> None:
                     "ON product_image_embeddings (supplier_offering_id)"
                 )
             )
+        if "n8n_emitted_events" not in inspector.get_table_names():
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE n8n_emitted_events (
+                        event_id VARCHAR(160) NOT NULL PRIMARY KEY,
+                        event_type VARCHAR(80),
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
+                    )
+                    """
+                )
+            )
 
 
 @asynccontextmanager
@@ -251,6 +264,7 @@ app.include_router(offerings_router.router)
 app.include_router(documents_router.router)
 app.include_router(documents_router.supplier_router)
 app.include_router(notifications_router.router)
+app.include_router(n8n_bridge_router.router)
 app.include_router(rfqs_router.router)
 app.include_router(suppliers_router.router)
 app.include_router(admin_router.router)

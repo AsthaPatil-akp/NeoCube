@@ -12,12 +12,38 @@ FALLBACK_STRUCTURED_WEIGHT = 0.4
 
 def requirement_text(requirement: ClientRequirement) -> str:
     category = requirement.category.name if requirement.category else ""
-    return " ".join(part for part in [requirement.product_requirement, requirement.additional_notes or "", category] if part)
+    return " ".join(
+        part
+        for part in [
+            _usable_product_text(requirement.product_requirement),
+            requirement.additional_notes or "",
+            category,
+        ]
+        if part
+    )
 
 
 def offering_text(offering: SupplierOffering) -> str:
     category = offering.category.name if offering.category else ""
-    return " ".join(part for part in [offering.product_offered, offering.additional_notes or "", category] if part)
+    return " ".join(
+        part
+        for part in [
+            _usable_product_text(offering.product_offered),
+            offering.additional_notes or "",
+            category,
+        ]
+        if part
+    )
+
+
+TEXT_PLACEHOLDERS = {"image", "photo", "picture", "img", "product image"}
+
+
+def _usable_product_text(value: str | None) -> str:
+    text = str(value or "").strip()
+    if not text or text.lower() in TEXT_PLACEHOLDERS:
+        return ""
+    return text
 
 
 def explanations(constraints, semantic: float, location_overlap: float) -> list[str]:
@@ -34,9 +60,7 @@ def explanations(constraints, semantic: float, location_overlap: float) -> list[
         reasons.append("Certification compatible")
     if location_overlap > 0:
         reasons.append("Location compatible")
-    if constraints.product_ok and (
-        getattr(constraints, "product_family_status", "") == "known_compatible" or semantic >= 0.35
-    ):
+    if constraints.product_ok and getattr(constraints, "product_family_status", "") == "known_compatible":
         reasons.append("Product compatible")
     return reasons
 

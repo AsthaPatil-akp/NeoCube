@@ -79,6 +79,14 @@ def test_match_created_sends_webhook_payload(monkeypatch):
     assert payload["quantity"] == body["quantity"]
     assert payload["match_score"] == match["final_score"]
     assert_decimal_match_score(payload["match_score"], match["final_score"])
+    from app.n8n_workflow_logic import format_match_score_percent
+
+    assert payload["match_score_percent"] == format_match_score_percent(match["final_score"])
+    assert payload["has_recipient"] is True
+    assert payload["recipient_email"] == "sup-match-hook@example.com"
+    assert payload["requirement_id"] == body["id"]
+    assert payload["offering_id"] == offering.json()["id"]
+    assert calls[0]["timeout"] == 10.0
     assert payload["match_explanation"]
     assert payload["created_at"]
     assert payload["client_id"] is not None
@@ -406,7 +414,7 @@ def test_match_created_resolves_users_email_when_profile_user_unloaded(monkeypat
     assert payload["client_email"] != "client@example.com"
 
 
-def test_n8n_skips_send_when_recipient_unavailable(monkeypatch):
+def test_n8n_posts_when_recipient_unavailable_with_flag(monkeypatch):
     calls = _install_post(monkeypatch)
     from app.webhooks import notify_n8n
 
@@ -417,6 +425,23 @@ def test_n8n_skips_send_when_recipient_unavailable(monkeypatch):
             "supplier_email": None,
             "client_email": None,
             "recipient_email": "",
+        }
+    )
+    assert len(calls) == 1
+    payload = calls[0]["json"]
+    assert payload["has_recipient"] is False
+    assert payload["recipient_email"] is None
+
+
+def test_n8n_skips_post_when_event_id_missing(monkeypatch):
+    calls = _install_post(monkeypatch)
+    from app.webhooks import notify_n8n
+
+    notify_n8n(
+        {
+            "event_type": "MATCH_CREATED",
+            "supplier_email": "sup@example.com",
+            "client_email": "cli@example.com",
         }
     )
     assert calls == []

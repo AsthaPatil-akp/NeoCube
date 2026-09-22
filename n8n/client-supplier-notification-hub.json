@@ -1,0 +1,313 @@
+{
+  "name": "Client Supplier Notification Hub",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "client-supplier-notifications",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-hub",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "client-supplier-notifications"
+    },
+    {
+      "parameters": {
+        "jsCode": "const incoming = $json.body && typeof $json.body === 'object' && Object.keys($json.body).length ? $json.body : $json;\nconst raw = { ...incoming };\nconst eventType = String(raw.event_type || raw.event || '').trim();\nconst eventId = raw.event_id == null ? '' : String(raw.event_id).trim();\nconst supplierEvents = new Set(['MATCH_CREATED','CLIENT_REQUEST_SENT','PAYMENT_CONFIRMED','ORDER_RECEIVED','ORDER_COMPLETED']);\nconst clientEvents = new Set(['SUPPLIER_ACCEPTED','SUPPLIER_DECLINED','SHIPMENT_SHIPPED']);\nfunction text(value) {\n  if (value == null) return '';\n  return String(value).trim();\n}\nfunction formatPercent(score) {\n  if (score == null || score === '') return null;\n  const n = Number(score);\n  if (Number.isNaN(n)) return null;\n  const pct = Math.round(n * 10000) / 100;\n  if (Number.isInteger(pct)) return `${pct}%`;\n  return `${pct.toFixed(2).replace(/0+$/, '').replace(/\\.$/, '')}%`;\n}\nlet recipient = text(raw.recipient_email);\nif (!recipient) {\n  if (supplierEvents.has(eventType)) recipient = text(raw.supplier_email);\n  else if (clientEvents.has(eventType)) recipient = text(raw.client_email);\n  else recipient = text(raw.supplier_email) || text(raw.client_email);\n}\nlet matchScorePercent = raw.match_score_percent || formatPercent(raw.match_score);\nlet workflowStatus = 'ok';\nlet workflowError = null;\nif (!eventId) {\n  workflowStatus = 'invalid';\n  workflowError = 'missing_event_id';\n} else if (eventType && eventType !== 'quotation.created' && raw.supplier_id == null && raw.client_id == null) {\n  workflowStatus = 'invalid_party';\n  workflowError = 'invalid_or_missing_supplier_or_client_id';\n} else if (!recipient && eventType !== 'quotation.created') {\n  workflowStatus = 'missing_recipient';\n  workflowError = 'recipient_email_unavailable';\n}\nreturn [{\n  json: {\n    ...raw,\n    event_type: eventType,\n    event_id: eventId,\n    recipient_email: recipient || null,\n    has_recipient: Boolean(recipient),\n    match_score: raw.match_score,\n    match_score_percent: matchScorePercent,\n    workflow_status: workflowStatus,\n    workflow_error: workflowError,\n  },\n}];"
+      },
+      "id": "normalize-event",
+      "name": "Normalize Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const src = { ...$json };\n  const eventId = src.event_id == null ? '' : String(src.event_id).trim();\n  const staticData = $getWorkflowStaticData('global');\n  if (!staticData.processedEvents || typeof staticData.processedEvents !== 'object') {\n    staticData.processedEvents = {};\n  }\n  if (!eventId) {\n    return [{ json: { ...src, duplicate_status: 'invalid', duplicate_reason: 'missing_event_id', is_duplicate: false, should_send_email: false } }];\n  }\n  if (src.workflow_status === 'invalid_party') {\n    return [{ json: { ...src, duplicate_status: 'invalid', duplicate_reason: src.workflow_error || 'invalid_party', is_duplicate: false, should_send_email: false } }];\n  }\n  if (staticData.processedEvents[eventId]) {\n    return [{ json: { ...src, duplicate_status: 'duplicate', duplicate_reason: 'event_id_already_processed', is_duplicate: true, should_send_email: false } }];\n  }\n  const shouldSend = Boolean(src.has_recipient) && src.workflow_status !== 'missing_recipient';\n  return [{ json: { ...src, duplicate_status: 'new', duplicate_reason: null, is_duplicate: false, should_send_email: shouldSend } }];\n} catch (error) {\n  return [{ json: { ...$json, duplicate_status: 'error', duplicate_reason: 'database_unavailable', lookup_error: error.message, is_duplicate: false, should_send_email: false } }];\n}"
+      },
+      "id": "check-duplicate",
+      "name": "Check Duplicate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "is-error",
+              "leftValue": "={{ $json.duplicate_status }}",
+              "rightValue": "error",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-lookup-error",
+      "name": "Lookup Failed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ 'N8N duplicate lookup failed: ' + ($json.duplicate_reason || 'database_unavailable') }}",
+        "options": {}
+      },
+      "id": "stop-lookup-error",
+      "name": "Fail Database Lookup",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [960, 120]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "is-invalid",
+              "leftValue": "={{ $json.duplicate_status }}",
+              "rightValue": "invalid",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-invalid",
+      "name": "Invalid Event?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ 'N8N invalid event: ' + ($json.duplicate_reason || $json.workflow_error || 'invalid') }}",
+        "options": {}
+      },
+      "id": "stop-invalid",
+      "name": "Fail Invalid Event",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [1200, 120]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "is-dup",
+              "leftValue": "={{ $json.duplicate_status }}",
+              "rightValue": "duplicate",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-duplicate",
+      "name": "Already Processed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ...$json, action: 'skipped_duplicate', email_sent: false } }];"
+      },
+      "id": "skip-duplicate",
+      "name": "Skip Duplicate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 120]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "has-recipient",
+              "leftValue": "={{ $json.has_recipient }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-recipient",
+      "name": "Has Recipient?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ...$json, action: 'skipped_missing_recipient', email_sent: false } }];"
+      },
+      "id": "skip-missing-recipient",
+      "name": "Skip Missing Recipient",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 480]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            { "conditions": { "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 }, "conditions": [{ "id": "match", "leftValue": "={{ $json.event_type }}", "rightValue": "MATCH_CREATED", "operator": { "type": "string", "operation": "equals" } }], "combinator": "and" } },
+            { "conditions": { "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 }, "conditions": [{ "id": "request", "leftValue": "={{ $json.event_type }}", "rightValue": "CLIENT_REQUEST_SENT", "operator": { "type": "string", "operation": "equals" } }], "combinator": "and" } },
+            { "conditions": { "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 }, "conditions": [{ "id": "accepted", "leftValue": "={{ $json.event_type }}", "rightValue": "SUPPLIER_ACCEPTED", "operator": { "type": "string", "operation": "equals" } }], "combinator": "and" } },
+            { "conditions": { "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 }, "conditions": [{ "id": "declined", "leftValue": "={{ $json.event_type }}", "rightValue": "SUPPLIER_DECLINED", "operator": { "type": "string", "operation": "equals" } }], "combinator": "and" } }
+          ]
+        },
+        "options": { "fallbackOutput": "extra" }
+      },
+      "id": "route-event",
+      "name": "Route by Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1680, 300]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.recipient_email }}",
+        "subject": "={{ $json.email_subject }}",
+        "emailType": "text",
+        "message": "={{ $json.email_body }}",
+        "options": {}
+      },
+      "id": "email-match",
+      "name": "Email Supplier — Match Created",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1920, 80],
+      "webhookId": "email-match"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.recipient_email }}",
+        "subject": "={{ $json.email_subject }}",
+        "emailType": "text",
+        "message": "={{ $json.email_body }}",
+        "options": {}
+      },
+      "id": "email-request",
+      "name": "Email Supplier — Client Request",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1920, 220]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.recipient_email }}",
+        "subject": "={{ $json.email_subject }}",
+        "emailType": "text",
+        "message": "={{ $json.email_body }}",
+        "options": {}
+      },
+      "id": "email-accepted",
+      "name": "Email Client — Supplier Accepted",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1920, 360]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.recipient_email }}",
+        "subject": "={{ $json.email_subject }}",
+        "emailType": "text",
+        "message": "={{ $json.email_body }}",
+        "options": {}
+      },
+      "id": "email-declined",
+      "name": "Email Client — Supplier Declined",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1920, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ...$json, action: 'skipped_unrouted_event', email_sent: false } }];"
+      },
+      "id": "skip-unrouted",
+      "name": "Skip Unrouted Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 640]
+    },
+    {
+      "parameters": {
+        "jsCode": "const checked = $('Check Duplicate').first().json;\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.processedEvents || typeof staticData.processedEvents !== 'object') {\n  staticData.processedEvents = {};\n}\nconst eventId = checked.event_id == null ? '' : String(checked.event_id).trim();\nif (eventId && checked.duplicate_status === 'new' && checked.should_send_email) {\n  staticData.processedEvents[eventId] = true;\n}\nreturn [{ json: { ...checked, processed_logged: Boolean(eventId && checked.should_send_email), email_sent: true, action: 'processed' } }];"
+      },
+      "id": "log-processed",
+      "name": "Log processed event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2160, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Normalize Event", "type": "main", "index": 0 }]] },
+    "Normalize Event": { "main": [[{ "node": "Check Duplicate", "type": "main", "index": 0 }]] },
+    "Check Duplicate": { "main": [[{ "node": "Lookup Failed?", "type": "main", "index": 0 }]] },
+    "Lookup Failed?": {
+      "main": [
+        [{ "node": "Fail Database Lookup", "type": "main", "index": 0 }],
+        [{ "node": "Invalid Event?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Invalid Event?": {
+      "main": [
+        [{ "node": "Fail Invalid Event", "type": "main", "index": 0 }],
+        [{ "node": "Already Processed?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Already Processed?": {
+      "main": [
+        [{ "node": "Skip Duplicate", "type": "main", "index": 0 }],
+        [{ "node": "Has Recipient?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Has Recipient?": {
+      "main": [
+        [{ "node": "Route by Event Type", "type": "main", "index": 0 }],
+        [{ "node": "Skip Missing Recipient", "type": "main", "index": 0 }]
+      ]
+    },
+    "Route by Event Type": {
+      "main": [
+        [{ "node": "Email Supplier — Match Created", "type": "main", "index": 0 }],
+        [{ "node": "Email Supplier — Client Request", "type": "main", "index": 0 }],
+        [{ "node": "Email Client — Supplier Accepted", "type": "main", "index": 0 }],
+        [{ "node": "Email Client — Supplier Declined", "type": "main", "index": 0 }],
+        [{ "node": "Skip Unrouted Event", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email Supplier — Match Created": { "main": [[{ "node": "Log processed event", "type": "main", "index": 0 }]] },
+    "Email Supplier — Client Request": { "main": [[{ "node": "Log processed event", "type": "main", "index": 0 }]] },
+    "Email Client — Supplier Accepted": { "main": [[{ "node": "Log processed event", "type": "main", "index": 0 }]] },
+    "Email Client — Supplier Declined": { "main": [[{ "node": "Log processed event", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Import this workflow in n8n, attach existing Gmail credentials, activate it, then set N8N_WEBHOOK_URL to the production webhook URL. Check Duplicate MUST remain a Code node keyed on event_id. Do not use Data Table Get Row By ID with event_id."
+  }
+}

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
-import { formatMatchLabel, sortByMatchScore } from "../formatMatchScore";
+import { sortByMatchScore } from "../formatMatchScore";
+import MatchExplain from "../components/MatchExplain";
 import { ApiError, deactivateOffering, getOffering, updateOffering } from "../api";
 
 export default function OfferingDetail() {
@@ -189,7 +190,11 @@ export default function OfferingDetail() {
               <article className="product-card portal-card tile-card" key={match.id}>
                 <div className="product-copy">
                   <div className="tile-text">
-                    <p className="match-score-label">{formatMatchLabel(match.final_score)}</p>
+                    <MatchExplain
+                      score={match.final_score}
+                      reasons={match.explanation}
+                      semanticScore={match.semantic_score}
+                    />
                     <h3>{match.product_requirement}</h3>
                     <p>
                       {match.company_name} · {match.location} · {match.status}

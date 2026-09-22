@@ -229,7 +229,7 @@ Rows in `notifications` (unread/read, type, related entity, timestamp). Created 
 
 ## N8N
 
-N8N is **optional** for matching and RFQs. If `N8N_WEBHOOK_URL` is set, the backend POSTs structured events (`MATCH_CREATED`, `CLIENT_REQUEST_SENT`, `SUPPLIER_ACCEPTED`, `SUPPLIER_DECLINED`) to that backend-only URL after the corresponding business event is committed. Recipients come from registered `users.email` values (`supplier_email` / `client_email`). If the URL is empty, n8n is down, or the webhook errors, matching, RFQs, and in-app notifications still succeed. See `docs/N8N.md`.
+N8N is **optional** for matching and RFQs. If `N8N_WEBHOOK_URL` is set, the backend POSTs structured events (`MATCH_CREATED`, `CLIENT_REQUEST_SENT`, `SUPPLIER_ACCEPTED`, `SUPPLIER_DECLINED`) to that backend-only URL after the corresponding business event is committed. Recipients come from registered `users.email` values (`supplier_email` / `client_email`). Import `n8n/client-supplier-notification-hub.json` into n8n (replace the Data Table **Get Row By ID** duplicate check). If the URL is empty, n8n is down, or the webhook errors, matching, RFQs, and in-app notifications still succeed. See `docs/N8N.md`.
 
 This is the production n8n workflow currently used by NeoCube:
 
